@@ -14,3 +14,23 @@ head -n 1 data/train_00/00.jsonl | jq 'keys'
 ```bash
 python extract_subset.py
 ```
+
+## Download and use the pre-tokenized data with the same order
+EleutherAI has provided a pre-tokenized version of the standard (duplicated) pile dataset, which is also Pythia pre-shuffled. The dataset contains only token_ids. [link](https://huggingface.co/datasets/EleutherAI/pile-standard-pythia-preshuffled/tree/main)
+
+The whole dataset has about 300B tokens. `00.bin` to `19.bin` are about 30GB large each. The last one `20.bin` is only 78.3MB. We can download only the last one.
+
+1. Clone the repository without downloading
+```bash
+GIT_LFS_SKIP_SMUDGE=1 git clone https://huggingface.co/datasets/EleutherAI/pile-standard-pythia-preshuffled
+```
+2. Download only the last file, which has 39168000 tokens
+```bash
+cd pile-standard-pythia-preshuffled
+git lfs pull --include="document-00020-of-00020.bin"
+```
+1. Get all the tokens from the last file. We can use it to get the last 5M tokens.
+```python
+filename = "document-00020-of-00020.bin"
+tokens = np.memmap(filename, dtype=np.uint16)
+```
