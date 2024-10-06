@@ -24,7 +24,7 @@ def train(model, accelerator, dataloader, optimizer, output_dir):
 
     for step, batch in enumerate(tqdm(dataloader)):
         if accelerator.is_main_process:
-            if step % 500 == 0:
+            if step % 100 == 0:
                 print(f"Training step {step}, loss: {batch_loss:.2f}, ppl: {batch_ppl:.2f}")
 
 
@@ -79,9 +79,6 @@ def parse_args():
     
     parser.add_argument('--dataset', type=str, default='data/train_00/00_5m.pt',
                         help='Directory/hf name containing the pretraining data')
-    
-    parser.add_argument('--num_samples', type=int, default=10000,
-                        help='Number of samples to pretrain on')
     
     parser.add_argument('--seed', type=int, default=1234,
                         help='Seed for sampling the dataset')

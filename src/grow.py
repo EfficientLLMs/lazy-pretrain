@@ -14,7 +14,7 @@ MODEL_MAP = {
 }
 
 
-def grow_model(model, tokenizer, new_depth, new_width, depth_growth):
+def grow_model(model, tokenizer, new_depth, new_width, depth_growth, attn_heads):
 
     # Save a dictionary of model's param to whether it was copied from the small model
     # This is useful for freezing the small model layers during pretraining
@@ -46,7 +46,7 @@ def grow_model(model, tokenizer, new_depth, new_width, depth_growth):
             new_dim = min(model.config.hidden_size * 2, new_width)
             print(f'Expanding model of {model.config.hidden_size} width to {new_dim} width')
             model = grow_width.expand_width(
-                model, model.config.hidden_size, new_dim, attn_heads=None
+                model, model.config.hidden_size, new_dim, attn_heads=attn_heads
             )
 
 
@@ -72,8 +72,11 @@ def parse_args():
     parser.add_argument('--output_dir', type=str, default='models/pythia-70m-to-pythia-410m',
                         help='Directory to save the grown model')
     
-    parser.add_argument('--checkpoint_step', type=int, default="step3000",
+    parser.add_argument('--checkpoint_step', type=int, default=None,
                         help='Model checkpoint to load')
+
+    parser.add_argument('--attn_heads', type=int, default=None,
+                        help='Number of attention heads for the large model')
     
 
     args = parser.parse_args()
@@ -91,10 +94,15 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_MAP[args.small_model])
 
     # Load small model
-    small_model = AutoModelForCausalLM.from_pretrained(
-        MODEL_MAP[args.small_model],
-        revision=args.checkpoint_step
-    )
+    if args.checkpoint_step is not None:
+        small_model = AutoModelForCausalLM.from_pretrained(
+            args.small_model,
+            revision=args.checkpoint_step
+        )
+    else:
+        small_model = AutoModelForCausalLM.from_pretrained(
+            MODEL_MAP[args.small_model],
+        )
 
     # Grow small model to large model
     large_model = grow_model(
@@ -102,7 +110,8 @@ def main():
         tokenizer,
         args.large_depth,
         args.large_width,
-        args.depth_growth
+        args.depth_growth,
+        args.attn_heads,
     )
 
     # Save the grown model
@@ -112,6 +121,8 @@ def main():
     large_model.save_pretrained(args.output_dir)
 
     # TODO: dict of copied params to be saved in the output_dir
+
+    print(f'Grown model config: {large_model.config}')
 
 
 

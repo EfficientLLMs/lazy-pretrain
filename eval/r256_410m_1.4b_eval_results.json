@@ -1,0 +1,70 @@
+{
+  "arc_challenge": {
+    "alias": "arc_challenge",
+    "acc,none": 0.18430034129692832,
+    "acc_stderr,none": 0.011330517933037422,
+    "acc_norm,none": 0.23293515358361774,
+    "acc_norm_stderr,none": 0.012352507042617398
+  },
+  "arc_easy": {
+    "alias": "arc_easy",
+    "acc,none": 0.28619528619528617,
+    "acc_stderr,none": 0.009274470774627733,
+    "acc_norm,none": 0.2946127946127946,
+    "acc_norm_stderr,none": 0.009354224395837092
+  },
+  "hellaswag": {
+    "alias": "hellaswag",
+    "acc,none": 0.25941047600079664,
+    "acc_stderr,none": 0.004374153847826756,
+    "acc_norm,none": 0.2557259510057757,
+    "acc_norm_stderr,none": 0.004353768730644533
+  },
+  "lambada_openai": {
+    "alias": "lambada_openai",
+    "perplexity,none": 403860.9661465896,
+    "perplexity_stderr,none": 29254.218146396648,
+    "acc,none": 0.0,
+    "acc_stderr,none": 0.0
+  },
+  "logiqa": {
+    "alias": "logiqa",
+    "acc,none": 0.1935483870967742,
+    "acc_stderr,none": 0.015496272948879394,
+    "acc_norm,none": 0.2519201228878648,
+    "acc_norm_stderr,none": 0.017027415657021122
+  },
+  "logiqa2": {
+    "alias": "logiqa2",
+    "acc,none": 0.205470737913486,
+    "acc_stderr,none": 0.010193934673198186,
+    "acc_norm,none": 0.2589058524173028,
+    "acc_norm_stderr,none": 0.011051456868610527
+  },
+  "openbookqa": {
+    "alias": "openbookqa",
+    "acc,none": 0.14,
+    "acc_stderr,none": 0.015533272840269662,
+    "acc_norm,none": 0.27,
+    "acc_norm_stderr,none": 0.01987435483128749
+  },
+  "piqa": {
+    "alias": "piqa",
+    "acc,none": 0.5489662676822633,
+    "acc_stderr,none": 0.01160974720073308,
+    "acc_norm,none": 0.530467899891186,
+    "acc_norm_stderr,none": 0.011644145418354871
+  },
+  "sciq": {
+    "alias": "sciq",
+    "acc,none": 0.25,
+    "acc_stderr,none": 0.013699915608779773,
+    "acc_norm,none": 0.246,
+    "acc_norm_stderr,none": 0.013626065817750634
+  },
+  "winogrande": {
+    "alias": "winogrande",
+    "acc,none": 0.5232833464877664,
+    "acc_stderr,none": 0.014037241309573638
+  }
+}

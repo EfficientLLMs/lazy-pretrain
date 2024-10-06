@@ -1,6 +1,7 @@
 import torch
 import json
 from transformers import AutoTokenizer
+import argparse
 
 def prepare_dataset(dataset_path, tokenizer):
     """
@@ -38,16 +39,36 @@ def prepare_dataset(dataset_path, tokenizer):
     return dataset
 
 
-if __name__ == "__main__":
-    dataset_path = "data/train_00/00_5m.jsonl"
-    tokenizer = AutoTokenizer.from_pretrained("EleutherAI/pythia-70m")
+def parse_args():
+    parser = argparse.ArgumentParser(description='Prepare a dataset for pretraining')
 
-    dataset = prepare_dataset(dataset_path, tokenizer)
+    parser.add_argument('--dataset', type=str, default='data/train_00/00_20m.jsonl',
+                        help='Path to the dataset file')
+
+    parser.add_argument('--tokenizer', type=str, default='EleutherAI/pythia-70m',
+                        help='Tokenizer to use for the model')
+    
+    parser.add_argument('--output', type=str, default='data/train_00/00_20m.pt',
+                        help='Path to save the prepared dataset')
+
+    return parser.parse_args()
+
+
+
+if __name__ == "__main__":
+    
+    args = parse_args()
+
+    # Load the tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+
+    dataset = prepare_dataset(args.dataset, tokenizer)
+
     print(f"Prepared dataset with {len(dataset)} blocks")
     print(dataset[0])
 
     # Save the dataset to disk
-    torch.save(dataset, "data/train_00/00_5m.pt")
+    torch.save(dataset, args.output)
         
             
         

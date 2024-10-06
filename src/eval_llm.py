@@ -2,6 +2,61 @@ from lm_eval import evaluator
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
+from accelerate import Accelerator
+
+
+def evaluate_model(
+    model_path: str,
+    tasks: list,
+    tokenizer_path: str = None,  # If different from base_model_path
+    num_fewshot: int = 0,
+    batch_size: int = 4,
+    parallelize: bool = False,
+):
+    """
+    Simple evaluation of a model.
+    """
+
+    accelerator = Accelerator()
+    
+    # Load tokenizer
+    tokenizer_path = tokenizer_path or model_path
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    
+    # Load model
+    print("Loading model...")
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path,
+        # torch_dtype=torch.bfloat16,
+        device_map="auto",
+        trust_remote_code=True
+    )
+
+    # Prepare model for evaluation
+    model = accelerator.prepare(model)
+    
+    # Save model to temporary directory
+    import tempfile
+    import os
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        print(f"Saving model to {tmp_dir}...")
+        model.save_pretrained(tmp_dir)
+        tokenizer.save_pretrained(tmp_dir)
+        
+        # Run evaluation
+        print("Starting evaluation...")
+        results = evaluator.simple_evaluate(
+            model="hf",
+            model_args=f"pretrained={tmp_dir},parallelize={parallelize}",
+            tasks=tasks,
+            num_fewshot=num_fewshot,
+            batch_size=batch_size,
+            # no_cache=True
+        )
+    
+    return results
 
 def evaluate_merged_model(
     base_model_path: str,
@@ -10,6 +65,7 @@ def evaluate_merged_model(
     tokenizer_path: str = None,  # If different from base_model_path
     num_fewshot: int = 0,
     batch_size: int = 4,
+    parallelize: bool = False,
 ):
     """
     Simple evaluation of a model after merging LoRA weights.
@@ -25,7 +81,7 @@ def evaluate_merged_model(
     print("Loading base model...")
     base_model = AutoModelForCausalLM.from_pretrained(
         base_model_path,
-        torch_dtype=torch.bfloat16,
+        # torch_dtype=torch.bfloat16,
         device_map="auto",
         trust_remote_code=True
     )
@@ -47,7 +103,7 @@ def evaluate_merged_model(
         print("Starting evaluation...")
         results = evaluator.simple_evaluate(
             model="hf",
-            model_args=f"pretrained={tmp_dir}",
+            model_args=f"pretrained={tmp_dir},parallelize={parallelize}",
             tasks=tasks,
             num_fewshot=num_fewshot,
             batch_size=batch_size,
@@ -57,24 +113,75 @@ def evaluate_merged_model(
     return results
 
 
-if __name__ == "__main__":
-    # Example usage
-    results = evaluate_merged_model(
-        base_model_path="models/pythia-70m-to-pythia-410m",
-        lora_path="models/pythia-70m-to-pythia-410m-lora",
-        tokenizer_path="EleutherAI/pythia-70m",  # Your HF tokenizer
-        tasks=["lambada_openai", "arc_easy"],
-        batch_size=4
+def parse_args():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--base_model_path", type=str, required=True, default="models/pythia-70m-to-pythia-410m"
     )
+    parser.add_argument(
+        "--lora_path", type=str, required=False, default=None
+    )
+    parser.add_argument(
+        "--tokenizer_path", type=str, default="EleutherAI/pythia-70m",
+    )
+    parser.add_argument(
+        "--tasks", type=str, nargs="+", required=True, default=["lambada_openai", "arc_easy"]
+    )
+    parser.add_argument(
+        "--num_fewshot", type=int, default=0
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=4
+    )
+
+    parser.add_argument(
+        "--eval_results_path", type=str, default="eval/evaluation_results"
+    )
+
+    parser.add_argument(
+        "--parallelize", action="store_true"
+    )
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    
+    # Parse arguments
+    args = parse_args()
+
+    print('Number of gpus:', torch.cuda.device_count())
+
+    if args.lora_path is None:
+        results = evaluate_model(
+            model_path=args.base_model_path,
+            tokenizer_path=args.tokenizer_path,
+            tasks=args.tasks,
+            num_fewshot=args.num_fewshot,
+            batch_size=args.batch_size,
+            parallelize=args.parallelize,
+        )
+
+    else:
+        results = evaluate_merged_model(
+            base_model_path=args.base_model_path,
+            lora_path=args.lora_path,
+            tokenizer_path=args.tokenizer_path,
+            tasks=args.tasks,
+            num_fewshot=args.num_fewshot,
+            batch_size=args.batch_size,
+            parallelize=args.parallelize,
+        )
     
     # Print results
-    print(results)
+    print(results['results'])
 
     # Save into a file without json serialization
-    with open("eval/evaluation_results.txt", "w") as f:
+    with open(args.eval_results_path + "_full.txt", "w") as f:
         f.write(str(results))
     
-    # # Optionally save results
-    # import json
-    # with open("evaluation_results.json", "w") as f:
-    #     json.dump(results, f, indent=2)
+    # Optionally save results
+    import json
+    with open(args.eval_results_path + ".json", "w") as f:
+        json.dump(results['results'], f, indent=2)

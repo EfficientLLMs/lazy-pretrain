@@ -165,5 +165,20 @@ cython_debug/
 # Models
 models/
 
+
 # Cache
 .cache/
+
+# Data
+data/train_00/00.jsonl
+data/train_00/00_5m.pt
+data/train_00/00_20m.pt
+data/the_pile/
+data/pile-standard-pythia-preshuffled/
+
+
+# logs
+.slurm_logs/
+
+# eval
+eval/*_full.txt
