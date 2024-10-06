@@ -29,7 +29,7 @@ GIT_LFS_SKIP_SMUDGE=1 git clone https://huggingface.co/datasets/EleutherAI/pile-
 cd pile-standard-pythia-preshuffled
 git lfs pull --include="document-00020-of-00020.bin"
 ```
-1. Get all the tokens from the last file. We can use it to get the last 5M tokens.
+3. Get all the tokens from the last file. We can use it to get the last 5M tokens.
 ```python
 filename = "document-00020-of-00020.bin"
 tokens = np.memmap(filename, dtype=np.uint16)
