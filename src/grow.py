@@ -2,7 +2,7 @@ import argparse
 import os
 import math
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import grow_depth, grow_width
+import grow_depth, grow_width_hyper
 
 
 MODEL_MAP = {
@@ -45,10 +45,11 @@ def grow_model(model, tokenizer, new_depth, new_width, depth_growth, attn_heads)
         while model.config.hidden_size < new_width:
             new_dim = min(model.config.hidden_size * 2, new_width)
             print(f'Expanding model of {model.config.hidden_size} width to {new_dim} width')
-            model = grow_width.expand_width(
-                model, model.config.hidden_size, new_dim, attn_heads=attn_heads
+            model = grow_width_hyper.expand_width(
+                model, model.config.hidden_size, new_dim, 
             )
-
+            # attn_heads=attn_heads
+    
 
     return model
 
@@ -103,6 +104,13 @@ def main():
         small_model = AutoModelForCausalLM.from_pretrained(
             MODEL_MAP[args.small_model],
         )
+    
+    print(f"Original model: {small_model.config.num_hidden_layers} layers, {small_model.config.hidden_size} width")
+
+    inputs = tokenizer("Finish the following sentence:\nRaindrops on roses", return_tensors="pt")
+    tokens = small_model.generate(**inputs)
+    print(tokenizer.decode(tokens[0]))
+    print()
 
     # Grow small model to large model
     large_model = grow_model(
@@ -114,11 +122,31 @@ def main():
         args.attn_heads,
     )
 
+    print(f"Grown model: {large_model.config.num_hidden_layers} layers, {large_model.config.hidden_size} width")
+    
+    tokens = large_model.generate(**inputs)
+    print(tokenizer.decode(tokens[0]))
+    print()
+
+
     # Save the grown model
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     
     large_model.save_pretrained(args.output_dir)
+
+    # Benchmark grown model
+    from eval_llm import evaluate_model
+    results = evaluate_model(
+        model_path=args.output_dir,
+        tokenizer_path=MODEL_MAP[args.small_model],
+        tasks=['lambada_openai'],
+        num_fewshot=0,
+        batch_size=4,
+        parallelize=True,
+    )
+
+    print(f"Results: {results['results']}")
 
     # TODO: dict of copied params to be saved in the output_dir
 

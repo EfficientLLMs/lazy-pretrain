@@ -8,6 +8,7 @@ from peft import LoraConfig, PeftModel, get_peft_model
 from accelerate import Accelerator
 import wandb
 from tqdm import tqdm
+from torch.nn.utils import clip_grad_norm_
 
 
 def train(model, accelerator, dataloader, optimizer, output_dir):
@@ -33,6 +34,11 @@ def train(model, accelerator, dataloader, optimizer, output_dir):
         loss = outputs.loss
 
         accelerator.backward(loss)
+
+
+        # Clip the gradients before stepping
+        clip_grad_norm_(model.parameters(), max_norm=1.0)
+
         optimizer.step()
 
         batch_loss = loss.item()
