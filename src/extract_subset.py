@@ -31,8 +31,8 @@ def extract_tokens(input_file, output_file, target_token_count):
 
 if __name__ == "__main__":
     input_file = "data/train_00/00.jsonl"
-    output_file = "data/train_00/00_20m.jsonl"
-    target_tokens = 20_000_000
+    output_file = "data/train_00/00_100m.jsonl"
+    target_tokens = 100_000_000
     
     extract_tokens(input_file, output_file, target_tokens)
     print(f"Extracted data written to {output_file}")
