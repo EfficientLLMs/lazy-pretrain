@@ -3,7 +3,7 @@ import os
 import math
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import grow_depth, grow_width_hyper
-
+import pickle
 
 MODEL_MAP = {
     'pythia-70m': 'EleutherAI/pythia-70m',
@@ -14,11 +14,11 @@ MODEL_MAP = {
 }
 
 
-def grow_model(model, tokenizer, new_depth, new_width, depth_growth, attn_heads):
+def grow_model(model, new_depth, new_width, depth_growth, attn_heads):
 
     # Save a dictionary of model's param to whether it was copied from the small model
     # This is useful for freezing the small model layers during pretraining
-    copied_params = {name: False for name, _ in model.named_parameters()}
+    copied_layers = [False] * model.config.num_hidden_layers
 
     # Grow depth
     if new_depth > model.config.num_hidden_layers:
@@ -29,8 +29,8 @@ def grow_model(model, tokenizer, new_depth, new_width, depth_growth, attn_heads)
         while model.config.num_hidden_layers < new_depth:
             new_layers = min(model.config.num_hidden_layers * 2, new_depth)
             print(f'Expanding model of {model.config.num_hidden_layers} layers to {new_layers} layers')
-            model = grow_depth.expand_layers(
-                model, model.config.num_hidden_layers, new_layers, expand_type=depth_growth
+            model, copied_layers = grow_depth.expand_layers(
+                model, model.config.num_hidden_layers, new_layers, expand_type=depth_growth, copied_layers=copied_layers,
             )
 
 
@@ -51,7 +51,7 @@ def grow_model(model, tokenizer, new_depth, new_width, depth_growth, attn_heads)
             # attn_heads=attn_heads
     
 
-    return model
+    return model, copied_layers
 
 
 def parse_args():
@@ -113,9 +113,8 @@ def main():
     print()
 
     # Grow small model to large model
-    large_model = grow_model(
+    large_model, copied_layers = grow_model(
         small_model,
-        tokenizer,
         args.large_depth,
         args.large_width,
         args.depth_growth,
@@ -134,6 +133,10 @@ def main():
         os.makedirs(args.output_dir)
     
     large_model.save_pretrained(args.output_dir)
+    # Save copied_layers into the output_dir using json
+    with open(os.path.join(args.output_dir, 'copied_layers.pkl'), 'w') as f:
+        pickle.dump(copied_layers, f)
+
 
     # Benchmark grown model
     from eval_llm import evaluate_model
@@ -151,6 +154,9 @@ def main():
     # TODO: dict of copied params to be saved in the output_dir
 
     print(f'Grown model config: {large_model.config}')
+
+
+    # Freeze all the layers that are copied from the small model (and embedding layers)
 
 
 

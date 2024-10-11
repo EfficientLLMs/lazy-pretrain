@@ -142,7 +142,7 @@ def deep_state_dict(old_state_dict, map_positions):
 
     return new_state_dict
 
-def expand_layers(model, layers_small, layers_large, expand_type='alternate'):
+def expand_layers(model, layers_small, layers_large, expand_type='alternate', copied_layers=None):
     """
     Expand the layers of a model in a function preserving manner from 
     `layers_small` number of layers to `layers_large` number of layers.
@@ -155,6 +155,7 @@ def expand_layers(model, layers_small, layers_large, expand_type='alternate'):
 
     Returns:
         model (transformers.AutoModelForCausalLM): The expanded model
+        copied_layers (list): A list of booleans indicating whether the layer was copied from the original model
     """
 
     # Check if the expand_type is valid
@@ -174,17 +175,21 @@ def expand_layers(model, layers_small, layers_large, expand_type='alternate'):
 
     # Expand the number of layers from layers_small to layers_large
     layers = model.gpt_neox.layers
+    if copied_layers is None:
+        copied_layers = [False] * len(layers)
 
     for i in range(layers_large - layers_small):
         if expand_type == 'alternate':
             # Add layers_large - layers_small number of layers alternating between the original layers
             # Example: [0, 1, 2] -> [0, 0, 1, 1, 2] for layers_small = 3 and layers_large = 5
             layers.insert(i * 2, copy.deepcopy(layers[i * 2]))
+            copied_layers.insert(i * 2, True)
             
         elif expand_type == 'append':
             # Add layers_large - layers_small number of layers to the end of the model
             # Example: [0, 1, 2] -> [0, 1, 2, 0, 1] for layers_small = 3 and layers_large = 5
             layers.append(copy.deepcopy(layers[i]))
+            copied_layers.append(True)
         
         
     # Change the number of layers stored in the config to layers_large
@@ -194,7 +199,7 @@ def expand_layers(model, layers_small, layers_large, expand_type='alternate'):
     # Load the new_state_dict
     model.load_state_dict(new_state_dict)
 
-    return model
+    return model, copied_layers
 
 
 if __name__ == '__main__':
