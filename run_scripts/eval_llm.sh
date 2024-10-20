@@ -17,12 +17,12 @@
 #     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
 
 
-python src/eval_llm.py \
-    --base_model_path "models/pythia-410m-to-pythia-1.4b" \
-    --tokenizer_path "EleutherAI/pythia-410m" \
-    --eval_results_path "eval/r256_410m_1.4b_eval_raw_results" \
-    --parallelize \
-    --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
+# python src/eval_llm.py \
+#     --base_model_path "models/pythia-410m-to-pythia-1.4b" \
+#     --tokenizer_path "EleutherAI/pythia-410m" \
+#     --eval_results_path "eval/r256_410m_1.4b_eval_raw_results" \
+#     --parallelize \
+#     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
 
 
 # python src/eval_llm.py \
@@ -37,6 +37,13 @@ python src/eval_llm.py \
 #     --tokenizer_path "EleutherAI/pythia-70m" \
 #     --eval_results_path "eval/70m_eval_results" \
 #     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
+
+python src/eval_llm.py \
+    --base_model_path "EleutherAI/pythia-70m" \
+    --checkpoint_step "step140000" \
+    --tokenizer_path "EleutherAI/pythia-70m" \
+    --eval_results_path "eval/70m_step140000_eval_results" \
+    --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
 
 
 # python src/eval_llm.py \

@@ -9,6 +9,47 @@ from accelerate import Accelerator
 import wandb
 from tqdm import tqdm
 from torch.nn.utils import clip_grad_norm_
+from torch.utils.data import Dataset, DataLoader
+
+
+class CustomBinFileDataset(Dataset):
+    def __init__(self, first_idx, last_idx, num_tokens, chunk_size):
+        self.chunk_size = chunk_size
+        self.collect_tokens(first_idx, last_idx, num_tokens)
+        
+    def collect_tokens(self, first_idx, last_idx, num_tokens):
+        self.file_maps = []
+        self.file_lengths = []
+        total_tokens = 0
+        for idx in range(last_idx, first_idx - 1, -1):
+            filename = f"data/pile-standard-pythia-preshuffled/document-000{idx:02d}-of-00020.bin"
+            mmap = np.memmap(filename, dtype=np.uint16, mode='r')
+            self.file_maps.append(mmap)
+            self.file_lengths.append(len(mmap))
+            total_tokens += len(mmap)
+            if total_tokens >= num_tokens or idx == first_idx:
+                break
+        self.total_tokens = min(total_tokens, num_tokens)
+
+    def __len__(self):
+        return self.total_tokens // self.chunk_size
+
+    def __getitem__(self, idx):
+        start = idx * self.chunk_size
+        end = min(start + self.chunk_size, self.total_tokens)
+        chunk = np.zeros(end - start, dtype=np.uint16)
+        chunk_start = 0
+        for mmap, length in zip(self.file_maps, self.file_lengths):
+            if start < length:
+                chunk_end = min(end - start, length - start)
+                chunk[chunk_start:chunk_end] = mmap[start:start + chunk_end - chunk_start]
+                chunk_start = chunk_end
+                if chunk_start == self.chunk_size:
+                    break
+            start = max(0, start - length)
+            end = max(0, end - length)
+        # Convert uint16 to int64 before creating the PyTorch tensor
+        return {"input_ids": torch.from_numpy(chunk.astype(np.int64))}
 
 
 def train(model, accelerator, dataloader, optimizer, output_dir):
@@ -100,6 +141,17 @@ def parse_args():
     
     parser.add_argument('--output_dir', type=str, default='models/pythia-70m-to-pythia-410m-lora',
                         help='Directory to save the trained model')
+
+    parser.add_argument('--use_on_the_fly', action='store_true',
+                        help='Whether to use on-the-fly data processing')
+    parser.add_argument('--first_idx', type=int, default=19, 
+                        help='The index of the first .bin file')
+    parser.add_argument('--last_idx', type=int, default=20, 
+                        help='The index of the last .bin file')
+    parser.add_argument('--num_tokens', type=int, default=int(1e9),
+                        help='The target number of tokens of the dataset')
+    parser.add_argument('--chunk_size', type=int, default=512,
+                        help='Chunk size for tokenized content')
     
     args = parser.parse_args()
     return args
@@ -136,14 +188,31 @@ def main():
     model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
 
     # Load dataset
-    dataset = torch.load(args.dataset)
+    if args.use_on_the_fly:
+        dataset = CustomBinFileDataset(
+            first_idx=args.first_idx,
+            last_idx=args.last_idx,
+            num_tokens=args.num_tokens,
+            chunk_size=args.chunk_size
+        )
+        total_tokens = len(dataset) * args.chunk_size
+        assert total_tokens == args.num_tokens
+    else:
+        dataset = torch.load(args.dataset)
+
+    # sample = dataset[0]
+    # print(f"  Shape: {sample['input_ids'].shape}")
+    # print(f"  Data type: {sample['input_ids'].dtype}")
+    # print(f"  First few tokens: {sample['input_ids'][:10]}")
 
     # Create dataloader
-    dataloader = torch.utils.data.DataLoader(
+    dataloader = DataLoader(
         dataset,
         batch_size=args.batch_size, 
-        shuffle=True,
+        shuffle=False,  # keep the same order
         collate_fn=default_data_collator,
+        num_workers=1,
+        pin_memory=True
     )
 
     # Optimizer

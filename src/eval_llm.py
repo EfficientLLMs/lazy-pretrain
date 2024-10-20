@@ -7,6 +7,7 @@ from accelerate import Accelerator
 
 def evaluate_model(
     model_path: str,
+    checkpoint: str,
     tasks: list,
     tokenizer_path: str = None,  # If different from base_model_path
     num_fewshot: int = 0,
@@ -27,12 +28,21 @@ def evaluate_model(
     
     # Load model
     print("Loading model...")
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        # torch_dtype=torch.bfloat16,
-        device_map="auto",
-        trust_remote_code=True
-    )
+    if checkpoint is not None:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            revision=checkpoint,
+            # torch_dtype=torch.bfloat16,
+            device_map="auto",
+            trust_remote_code=True
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            # torch_dtype=torch.bfloat16,
+            device_map="auto",
+            trust_remote_code=True
+        )
 
     # Prepare model for evaluation
     model = accelerator.prepare(model)
@@ -120,6 +130,8 @@ def parse_args():
         "--base_model_path", type=str, required=True, default="models/pythia-70m-to-pythia-410m"
     )
     parser.add_argument(
+        '--checkpoint_step', type=str, default=None, help='Model checkpoint to load')
+    parser.add_argument(
         "--lora_path", type=str, required=False, default=None
     )
     parser.add_argument(
@@ -156,6 +168,7 @@ if __name__ == "__main__":
     if args.lora_path is None:
         results = evaluate_model(
             model_path=args.base_model_path,
+            checkpoint=args.checkpoint_step,
             tokenizer_path=args.tokenizer_path,
             tasks=args.tasks,
             num_fewshot=args.num_fewshot,

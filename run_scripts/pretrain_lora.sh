@@ -19,16 +19,28 @@
 
 
 
+# accelerate launch src/pretrain_lora.py \
+#     --grown_model "models/pythia-410m-to-pythia-1.4b" \
+#     --tokenizer "EleutherAI/pythia-410m" \
+#     --dataset "data/train_00/00_20m.pt" \
+#     --seed 1234 \
+#     --rank 256 \
+#     --batch_size 16 \
+#     --lr 1e-4 \
+#     --output_dir "models/pythia-410m-to-pythia-1.4b-lora"
+
 accelerate launch src/pretrain_lora.py \
-    --grown_model "models/pythia-410m-to-pythia-1.4b" \
-    --tokenizer "EleutherAI/pythia-410m" \
-    --dataset "data/train_00/00_20m.pt" \
+    --grown_model "models-xinyue/pythia-70m-step140000-to-pythia-410m" \
+    --tokenizer "EleutherAI/pythia-70m" \
     --seed 1234 \
     --rank 256 \
-    --batch_size 16 \
+    --batch_size 32 \
     --lr 1e-4 \
-    --output_dir "models/pythia-410m-to-pythia-1.4b-lora"
-
-
+    --output_dir "models-xinyue/pythia-70m-step140000-to-pythia-410m-lora" \
+    --use_on_the_fly \
+    --first_idx 19 \
+    --last_idx 20 \
+    --num_tokens 1000000000 \
+    --chunk_size 512
 
     

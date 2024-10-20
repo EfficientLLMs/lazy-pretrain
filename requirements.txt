@@ -1,0 +1,9 @@
+torch==2.0.1
+torchvision
+torchaudio
+transformers
+numpy==1.23.5
+peft
+accelerate
+wandb
+datasets

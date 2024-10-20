@@ -73,7 +73,7 @@ def parse_args():
     parser.add_argument('--output_dir', type=str, default='models/pythia-70m-to-pythia-410m',
                         help='Directory to save the grown model')
     
-    parser.add_argument('--checkpoint_step', type=int, default=None,
+    parser.add_argument('--checkpoint_step', type=str, default=None,
                         help='Model checkpoint to load')
 
     parser.add_argument('--attn_heads', type=int, default=None,
@@ -97,7 +97,7 @@ def main():
     # Load small model
     if args.checkpoint_step is not None:
         small_model = AutoModelForCausalLM.from_pretrained(
-            args.small_model,
+            MODEL_MAP[args.small_model],
             revision=args.checkpoint_step
         )
     else:
@@ -134,7 +134,7 @@ def main():
     
     large_model.save_pretrained(args.output_dir)
     # Save copied_layers into the output_dir using json
-    with open(os.path.join(args.output_dir, 'copied_layers.pkl'), 'w') as f:
+    with open(os.path.join(args.output_dir, 'copied_layers.pkl'), 'wb') as f:
         pickle.dump(copied_layers, f)
 
 

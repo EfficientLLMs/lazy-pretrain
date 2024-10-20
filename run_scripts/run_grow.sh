@@ -7,19 +7,21 @@
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
 
 
-python src/grow.py \
-    --small_model "pythia-410m" \
-    --large_depth 24 \
-    --large_width 2048 \
-    --depth_growth "alternate" \
-    --attn_heads 16 \
-    --output_dir "models/pythia-410m-to-pythia-1.4b"
-
 # python src/grow.py \
-#     --small_model "pythia-70m" \
+#     --small_model "pythia-410m" \
 #     --large_depth 24 \
-#     --large_width 1024 \
+#     --large_width 2048 \
 #     --depth_growth "alternate" \
-#     --output_dir "models/pythia-70m-to-pythia-410m"
+#     --attn_heads 16 \
+#     --output_dir "models-xinyue/pythia-410m-step140000-to-pythia-1.4b" \
+#     --checkpoint_step "step140000"
+
+python src/grow.py \
+    --small_model "pythia-70m" \
+    --large_depth 24 \
+    --large_width 1024 \
+    --depth_growth "alternate" \
+    --output_dir "models-xinyue/pythia-70m-step140000-to-pythia-410m" \
+    --checkpoint_step "step140000"
     
 # "step3000",
