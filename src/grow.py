@@ -139,17 +139,17 @@ def main():
 
 
     # Benchmark grown model
-    from eval_llm import evaluate_model
-    results = evaluate_model(
-        model_path=args.output_dir,
-        tokenizer_path=MODEL_MAP[args.small_model],
-        tasks=['lambada_openai'],
-        num_fewshot=0,
-        batch_size=4,
-        parallelize=True,
-    )
+    # from eval_llm import evaluate_model
+    # results = evaluate_model(
+    #     model_path=args.output_dir,
+    #     tokenizer_path=MODEL_MAP[args.small_model],
+    #     tasks=['lambada_openai'],
+    #     num_fewshot=0,
+    #     batch_size=4,
+    #     parallelize=True,
+    # )
 
-    print(f"Results: {results['results']}")
+    # print(f"Results: {results['results']}")
 
     # TODO: dict of copied params to be saved in the output_dir
 

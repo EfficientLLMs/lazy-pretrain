@@ -43,16 +43,16 @@ def prepare_dataset(dataset_path, tokenizer, chunk_size):
 def parse_args():
     parser = argparse.ArgumentParser(description='Prepare a dataset for pretraining')
 
-    parser.add_argument('--dataset', type=str, default='data/train_00/00_100m.jsonl',
+    parser.add_argument('--dataset', type=str, default='data/train_00/gemma/00_100m.jsonl',
                         help='Path to the dataset file')
 
-    parser.add_argument('--tokenizer', type=str, default='EleutherAI/pythia-70m',
+    parser.add_argument('--tokenizer', type=str, default='google/gemma-2b',
                         help='Tokenizer to use for the model')
     
-    parser.add_argument('--output', type=str, default='data/train_00/00_100m.pt',
+    parser.add_argument('--output', type=str, default='data/train_00/gemma/00_100m.pt',
                         help='Path to save the prepared dataset')
     
-    parser.add_argument('--chunk_size', type=int, default=512,
+    parser.add_argument('--chunk_size', type=int, default=8192,
                         help='Chunk size for tokenizing the content')
 
     return parser.parse_args()

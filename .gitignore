@@ -176,10 +176,11 @@ data/train_00/00_5m.pt
 data/train_00/00_20m.pt
 data/the_pile/
 data/pile-standard-pythia-preshuffled/
-
+data
 
 # logs
 .slurm_logs/
 
 # eval
 eval/*_full.txt
+

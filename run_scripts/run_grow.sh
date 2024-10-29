@@ -1,7 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=grow_410_1_4b
+#SBATCH --job-name=grow_70m_410m
 #SBATCH --mem=32G
-#SBATCH --output=.slurm_logs/grow_410_1_4b.out
+#SBATCH --output=.slurm_logs/grow_70m_410m.out
+
 #SBATCH --time=01-00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
