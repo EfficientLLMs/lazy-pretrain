@@ -1,0 +1,70 @@
+{
+  "arc_challenge": {
+    "alias": "arc_challenge",
+    "acc,none": 0.18344709897610922,
+    "acc_stderr,none": 0.011310170179554538,
+    "acc_norm,none": 0.2167235494880546,
+    "acc_norm_stderr,none": 0.01204015671348119
+  },
+  "arc_easy": {
+    "alias": "arc_easy",
+    "acc,none": 0.3859427609427609,
+    "acc_stderr,none": 0.009989277329503955,
+    "acc_norm,none": 0.351010101010101,
+    "acc_norm_stderr,none": 0.009793703885101045
+  },
+  "hellaswag": {
+    "alias": "hellaswag",
+    "acc,none": 0.2687711611232822,
+    "acc_stderr,none": 0.004424146562746116,
+    "acc_norm,none": 0.2787293367855009,
+    "acc_norm_stderr,none": 0.004474577054517474
+  },
+  "lambada_openai": {
+    "alias": "lambada_openai",
+    "perplexity,none": 104.81193237756679,
+    "perplexity_stderr,none": 4.352332459238627,
+    "acc,none": 0.23947215214438192,
+    "acc_stderr,none": 0.005945619905289315
+  },
+  "logiqa": {
+    "alias": "logiqa",
+    "acc,none": 0.20430107526881722,
+    "acc_stderr,none": 0.015814411436934708,
+    "acc_norm,none": 0.27342549923195086,
+    "acc_norm_stderr,none": 0.01748247454768128
+  },
+  "logiqa2": {
+    "alias": "logiqa2",
+    "acc,none": 0.23027989821882952,
+    "acc_stderr,none": 0.010622000956758084,
+    "acc_norm,none": 0.272264631043257,
+    "acc_norm_stderr,none": 0.011230375109327471
+  },
+  "openbookqa": {
+    "alias": "openbookqa",
+    "acc,none": 0.138,
+    "acc_stderr,none": 0.015439843831953449,
+    "acc_norm,none": 0.258,
+    "acc_norm_stderr,none": 0.01958671178521584
+  },
+  "piqa": {
+    "alias": "piqa",
+    "acc,none": 0.5990206746463548,
+    "acc_stderr,none": 0.011434766962108314,
+    "acc_norm,none": 0.5941240478781284,
+    "acc_norm_stderr,none": 0.011457256809261783
+  },
+  "sciq": {
+    "alias": "sciq",
+    "acc,none": 0.655,
+    "acc_stderr,none": 0.015039986742055238,
+    "acc_norm,none": 0.576,
+    "acc_norm_stderr,none": 0.015635487471405182
+  },
+  "winogrande": {
+    "alias": "winogrande",
+    "acc,none": 0.5209155485398579,
+    "acc_stderr,none": 0.014040185494212945
+  }
+}

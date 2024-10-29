@@ -164,6 +164,7 @@ cython_debug/
 
 # Models
 models/
+models-xinyue/
 
 
 # Cache
