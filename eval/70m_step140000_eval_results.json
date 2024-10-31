@@ -10,8 +10,8 @@
     "alias": "arc_easy",
     "acc,none": 0.37373737373737376,
     "acc_stderr,none": 0.009927267058259612,
-    "acc_norm,none": 0.3413299663299663,
-    "acc_norm_stderr,none": 0.009729473841242894
+    "acc_norm,none": 0.34175084175084175,
+    "acc_norm_stderr,none": 0.009732359564894592
   },
   "hellaswag": {
     "alias": "hellaswag",
@@ -22,8 +22,8 @@
   },
   "lambada_openai": {
     "alias": "lambada_openai",
-    "perplexity,none": 126.66120662775838,
-    "perplexity_stderr,none": 5.293901154398725,
+    "perplexity,none": 126.66285013942915,
+    "perplexity_stderr,none": 5.294010115197743,
     "acc,none": 0.2291868814282942,
     "acc_stderr,none": 0.0058557361391759905
   },

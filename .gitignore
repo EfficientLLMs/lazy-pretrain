@@ -180,6 +180,7 @@ data
 
 # logs
 .slurm_logs/
+.logs_clean/
 
 # eval
 eval/*_full.txt
