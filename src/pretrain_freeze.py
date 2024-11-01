@@ -15,66 +15,8 @@ import pickle
 from torch.nn.utils import clip_grad_norm_
 from eval_llm import evaluate_model
 
-def train(model, accelerator, dataloader, optimizer, output_dir):
-    
-    model.train()
-    total_loss = 0.0
-    total_ppl = 0.0
-
-    batch_loss = 0.0
-    batch_ppl = 0.0
-
-    if accelerator.is_main_process:
-        print("Start training...")
-
-    for step, batch in enumerate(tqdm(dataloader)):
-        if accelerator.is_main_process:
-            if step % 100 == 0:
-                print(f"Training step {step}, loss: {batch_loss:.2f}, ppl: {batch_ppl:.2f}")
-
-
-        optimizer.zero_grad()
-        outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
-        loss = outputs.loss
-
-        accelerator.backward(loss)
-
-
-        # Clip the gradients before stepping
-        clip_grad_norm_(model.parameters(), max_norm=1.0)
-
-        optimizer.step()
-
-        batch_loss = loss.item()
-        batch_ppl = torch.exp(loss).item()
-
-        total_loss += batch_loss
-        total_ppl += batch_ppl
-
-    avg_loss = total_loss / len(dataloader)
-    avg_ppl = total_ppl / len(dataloader)
-
-    if accelerator.is_main_process:
-        print(f"Training finished. Average loss: {avg_loss:.2f}, Average PPL: {avg_ppl:.2f}")
-
-    
-    # Save model
-    if accelerator.is_main_process:
-        unwrapped_model = accelerator.unwrap_model(model)
-        unwrapped_model.save_pretrained(
-            output_dir,
-            is_main_process=accelerator.is_main_process,
-            save_function=accelerator.save,
-        )
-
-
-
-
-def seed_all(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+# Relative imports
+from utils import CustomBinFileDataset, seed_all, train
 
 
 def parse_args():
