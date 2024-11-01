@@ -38,11 +38,24 @@
 #     --eval_results_path "eval/70m_eval_results" \
 #     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
 
+# python src/eval_llm.py \
+#     --base_model_path "EleutherAI/pythia-410m" \
+#     --checkpoint_step "step140000" \
+#     --tokenizer_path "EleutherAI/pythia-410m" \
+#     --eval_results_path "eval/410m_step140000_eval_results" \
+#     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
+
+# python src/eval_llm.py \
+#     --base_model_path "models-xinyue/pythia-70m-step140000-to-pythia-410m" \
+#     --tokenizer_path "EleutherAI/pythia-70m" \
+#     --eval_results_path "eval/70m_step140000_410m_eval_results" \
+#     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
+
 python src/eval_llm.py \
-    --base_model_path "EleutherAI/pythia-70m" \
-    --checkpoint_step "step140000" \
+    --base_model_path "models-xinyue/pythia-70m-step140000-to-pythia-410m" \
+    --lora_path "models-xinyue/pythia-70m-step140000-to-pythia-410m-1b-lora-1e5" \
     --tokenizer_path "EleutherAI/pythia-70m" \
-    --eval_results_path "eval/70m_step140000_eval_results" \
+    --eval_results_path "eval/r64_70m_step140000_410m_eval_results_1b" \
     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
 
 
