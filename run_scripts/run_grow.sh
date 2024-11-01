@@ -1,7 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=grow_410_1_4b
+#SBATCH --job-name=grow_70m_410m
 #SBATCH --mem=32G
-#SBATCH --output=.slurm_logs/grow_410_1_4b.out
+#SBATCH --output=.slurm_logs/grow_70m_410m.out
+
 #SBATCH --time=01-00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
@@ -21,7 +22,7 @@ python src/grow.py \
     --large_depth 24 \
     --large_width 1024 \
     --depth_growth "alternate" \
-    --output_dir "models-xinyue/pythia-70m-step140000-to-pythia-410m" \
+    --output_dir "models/pythia-70m-step140000-to-pythia-410m" \
     --checkpoint_step "step140000"
     
 # "step3000",

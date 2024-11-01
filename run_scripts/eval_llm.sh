@@ -1,28 +1,20 @@
 #!/bin/bash
-#SBATCH --job-name=eval_410m_1.4b
+#SBATCH --job-name=eval_freeze_70m_step140000_410m_tokens_1b_alpha256-allmod
 #SBATCH --mem=32G
-#SBATCH --gres=gpu:2080Ti:2
-#SBATCH --output=.slurm_logs/eval_raw_410m_1.4b.out
+#SBATCH --gres=gpu:A6000:2
+#SBATCH --output=.slurm_logs/eval_freeze_70m_step140000_410m_tokens_1b_alpha256-allmod.out
 #SBATCH --time=01-00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
 
 
-# python src/eval_llm.py \
-#     --base_model_path "models/pythia-410m-to-pythia-1.4b" \
-#     --lora_path "models/pythia-410m-to-pythia-1.4b-lora-5m" \
-#     --tokenizer_path "EleutherAI/pythia-410m" \
-#     --eval_results_path "eval/r256_410m_1.4b_eval_results" \
-#     --parallelize \
-#     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
 
-
-# python src/eval_llm.py \
-#     --base_model_path "models/pythia-410m-to-pythia-1.4b" \
-#     --tokenizer_path "EleutherAI/pythia-410m" \
-#     --eval_results_path "eval/r256_410m_1.4b_eval_raw_results" \
-#     --parallelize \
-#     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
+python src/eval_llm.py \
+    --base_model_path "models/pythia-70m-step140000-to-pythia-410m" \
+    --lora_path "models/pythia-70m-step140000-to-pythia-410m-lora-alpha256-allmod" \
+    --tokenizer_path "EleutherAI/pythia-70m" \
+    --eval_results_path "eval/lora_70m_step140000_410m_eval_results_1b_alpha256-allmod" \
+    --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa"
 
 
 # python src/eval_llm.py \
