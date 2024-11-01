@@ -26,7 +26,7 @@ def read_log(log_path):
             loss = re.search(r'loss: ([0-9]+\.[0-9]+)', line).group(1)
             losses.append(float(loss))
 
-    return losses
+    return losses[1:]
 
 def plot_losses(losses, output_path, title):
     plt.plot(losses, label='Pretraining loss')
