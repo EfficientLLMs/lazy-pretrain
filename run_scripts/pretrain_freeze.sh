@@ -8,7 +8,7 @@
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
 
 
-accelerate launch src/pretrain_freeze.py \
+accelerate launch src/pretrain/pretrain_freeze.py \
     --grown_model "models/pythia-70m-to-pythia-410m" \
     --tokenizer "EleutherAI/pythia-70m" \
     --dataset "data/train_00/00_100m.pt" \

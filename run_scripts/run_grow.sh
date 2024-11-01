@@ -17,7 +17,7 @@
 #     --output_dir "models-xinyue/pythia-410m-step140000-to-pythia-1.4b" \
 #     --checkpoint_step "step140000"
 
-python src/grow.py \
+python src/grow/grow.py \
     --small_model "pythia-70m" \
     --large_depth 24 \
     --large_width 1024 \
