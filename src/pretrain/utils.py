@@ -28,7 +28,6 @@ class CustomBinFileDataset(Dataset):
         self.file_maps = []
         self.file_lengths = []
         total_tokens = 0
-        # Still collect in reverse order, but we'll handle the reading differently
         for idx in range(last_idx, first_idx - 1, -1):
             filename = f"data/pile-standard-pythia-preshuffled/document-000{idx:02d}-of-00020.bin"
             mmap = np.memmap(filename, dtype=np.uint16, mode='r')
@@ -38,48 +37,51 @@ class CustomBinFileDataset(Dataset):
             if total_tokens >= num_tokens or idx == first_idx:
                 break
         self.total_tokens = min(total_tokens, num_tokens)
-        
+
     def __len__(self):
-        return self.total_tokens // self.chunk_size
-        
+        # Round up division to include the last incomplete chunk
+        return (self.total_tokens + self.chunk_size - 1) // self.chunk_size
+
     def __getitem__(self, idx):
         start = idx * self.chunk_size
         end = min(start + self.chunk_size, self.total_tokens)
         chunk = np.zeros(end - start, dtype=np.uint16)
         chunk_start = 0
-        
-        # Calculate total length and tokens to skip
+
+        # Calculate where we start in terms of total sequence
         total_length = sum(self.file_lengths)
-        skip_tokens = total_length - self.total_tokens
+        start_in_sequence = total_length - self.total_tokens + start
+        end_in_sequence = total_length - self.total_tokens + end
         
-        # Track position in the sequence
-        tokens_processed = 0
+        # Keep track of position in overall sequence
+        current_pos = 0
         
-        # Important: iterate through files in REVERSE order since they're stored in reverse
+        # Iterate through files in reverse (from earliest to latest)
         for mmap, length in zip(self.file_maps[::-1], self.file_lengths[::-1]):
-            # For first file, skip tokens if needed
-            file_start = skip_tokens if tokens_processed == 0 else 0
-            usable_tokens = length - file_start
+            next_pos = current_pos + length
             
-            if start < usable_tokens:
-                tokens_to_take = min(end - start, usable_tokens - start)
-                chunk[chunk_start:chunk_start + tokens_to_take] = mmap[file_start + start:file_start + start + tokens_to_take]
-                chunk_start += tokens_to_take
-                if chunk_start == self.chunk_size:
+            # If this file contains tokens we want
+            if start_in_sequence < next_pos:
+                # Calculate start and end positions within this file
+                file_start = max(0, start_in_sequence - current_pos)
+                file_end = min(length, end_in_sequence - current_pos)
+                
+                # Copy tokens to chunk
+                tokens_to_copy = file_end - file_start
+                chunk[chunk_start:chunk_start + tokens_to_copy] = mmap[file_start:file_end]
+                chunk_start += tokens_to_copy
+                
+                if chunk_start == end - start:
                     break
-            
-            start = max(0, start - usable_tokens)
-            end = max(0, end - usable_tokens)
-            tokens_processed += usable_tokens
-            
+                    
+            current_pos = next_pos
+
         input_ids = torch.from_numpy(chunk.astype(np.int64))
         if self.debug:
             print("Detokenized text:")
             print(PYTHIA_TOKENIZER.decode(input_ids))
             print()
         return {"input_ids": input_ids}
-
-
 
 
 def seed_all(seed):
