@@ -28,6 +28,7 @@ class CustomBinFileDataset(Dataset):
         self.file_maps = []
         self.file_lengths = []
         total_tokens = 0
+        # Still collect in reverse order, but we'll handle the reading differently
         for idx in range(last_idx, first_idx - 1, -1):
             filename = f"data/pile-standard-pythia-preshuffled/document-000{idx:02d}-of-00020.bin"
             mmap = np.memmap(filename, dtype=np.uint16, mode='r')
@@ -37,35 +38,45 @@ class CustomBinFileDataset(Dataset):
             if total_tokens >= num_tokens or idx == first_idx:
                 break
         self.total_tokens = min(total_tokens, num_tokens)
-
+        
     def __len__(self):
         return self.total_tokens // self.chunk_size
-
+        
     def __getitem__(self, idx):
         start = idx * self.chunk_size
         end = min(start + self.chunk_size, self.total_tokens)
         chunk = np.zeros(end - start, dtype=np.uint16)
         chunk_start = 0
-        for mmap, length in zip(self.file_maps, self.file_lengths):
-            if start < length:
-                chunk_end = min(end - start, length - start)
-                # Read tokens in reverse order within each file
-                file_start = length - (start + chunk_end - chunk_start)
-                file_end = length - start
-                chunk[chunk_start:chunk_end] = np.flip(mmap[file_start:file_end])
-                chunk_start = chunk_end
+        
+        # Calculate total length and tokens to skip
+        total_length = sum(self.file_lengths)
+        skip_tokens = total_length - self.total_tokens
+        
+        # Track position in the sequence
+        tokens_processed = 0
+        
+        # Important: iterate through files in REVERSE order since they're stored in reverse
+        for mmap, length in zip(self.file_maps[::-1], self.file_lengths[::-1]):
+            # For first file, skip tokens if needed
+            file_start = skip_tokens if tokens_processed == 0 else 0
+            usable_tokens = length - file_start
+            
+            if start < usable_tokens:
+                tokens_to_take = min(end - start, usable_tokens - start)
+                chunk[chunk_start:chunk_start + tokens_to_take] = mmap[file_start + start:file_start + start + tokens_to_take]
+                chunk_start += tokens_to_take
                 if chunk_start == self.chunk_size:
                     break
-            start = max(0, start - length)
-            end = max(0, end - length)
+            
+            start = max(0, start - usable_tokens)
+            end = max(0, end - usable_tokens)
+            tokens_processed += usable_tokens
+            
         input_ids = torch.from_numpy(chunk.astype(np.int64))
-
-        # Print the detokenized text for debugging
         if self.debug:
             print("Detokenized text:")
             print(PYTHIA_TOKENIZER.decode(input_ids))
             print()
-
         return {"input_ids": input_ids}
 
 
