@@ -41,11 +41,11 @@ accelerate launch src/pretrain_lora.py \
     --lora_alpha 256 \
     --batch_size 64 \
     --lr 1e-5 \
-    --output_dir "models/pythia-70m-step140000-to-pythia-410m-lora-alpha256-allmod" \
+    --output_dir "models/pythia-70m-step140000-to-pythia-410m-lora-r8-alpha8-allmod-1e-3" \
     --use_on_the_fly \
     --first_idx 19 \
     --last_idx 20 \
-    --num_tokens 1_000_000_000 \
+    --num_tokens 2_000_000_000 \
     --chunk_size 512
 
 # accelerate launch src/pretrain_lora.py \
