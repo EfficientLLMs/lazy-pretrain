@@ -49,13 +49,15 @@ class CustomBinFileDataset(Dataset):
         for mmap, length in zip(self.file_maps, self.file_lengths):
             if start < length:
                 chunk_end = min(end - start, length - start)
-                chunk[chunk_start:chunk_end] = mmap[start:start + chunk_end - chunk_start]
+                # Read tokens in reverse order within each file
+                file_start = length - (start + chunk_end - chunk_start)
+                file_end = length - start
+                chunk[chunk_start:chunk_end] = np.flip(mmap[file_start:file_end])
                 chunk_start = chunk_end
                 if chunk_start == self.chunk_size:
                     break
             start = max(0, start - length)
             end = max(0, end - length)
-        # Convert uint16 to int64 before creating the PyTorch tensor
         input_ids = torch.from_numpy(chunk.astype(np.int64))
 
         # Print the detokenized text for debugging
