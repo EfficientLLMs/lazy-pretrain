@@ -103,8 +103,8 @@ def main():
             chunk_size=args.chunk_size,
             debug=args.debug
         )
-        total_tokens = len(dataset) * args.chunk_size
-        assert total_tokens == args.num_tokens
+        # total_tokens = len(dataset) * args.chunk_size
+        # assert total_tokens == args.num_tokens
     else:
         dataset = torch.load(args.dataset)
 

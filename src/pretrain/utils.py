@@ -15,7 +15,8 @@ from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import Dataset, DataLoader
 
 
-PYTHIA_TOKENIZER = AutoTokenizer.from_pretrained("EleutherAI/pythia-70m")
+PYTHIA_TOKENIZER = AutoTokenizer.from_pretrained("EleutherAI/pythia-410m")
+PYTHIA_TOKENIZER.pad_token = PYTHIA_TOKENIZER.eos_token
 
 
 class CustomBinFileDataset(Dataset):
@@ -23,6 +24,7 @@ class CustomBinFileDataset(Dataset):
         self.chunk_size = chunk_size
         self.collect_tokens(first_idx, last_idx, num_tokens)
         self.debug = debug
+        self.pad_token_id = PYTHIA_TOKENIZER.pad_token_id
         
     def collect_tokens(self, first_idx, last_idx, num_tokens):
         self.file_maps = []
@@ -45,16 +47,17 @@ class CustomBinFileDataset(Dataset):
     def __getitem__(self, idx):
         start = idx * self.chunk_size
         end = min(start + self.chunk_size, self.total_tokens)
-        chunk = np.zeros(end - start, dtype=np.uint16)
-        chunk_start = 0
-
+        # Initialize with padding tokens
+        chunk = np.full(self.chunk_size, self.pad_token_id, dtype=np.uint16)
+        
         # Calculate where we start in terms of total sequence
         total_length = sum(self.file_lengths)
         start_in_sequence = total_length - self.total_tokens + start
         end_in_sequence = total_length - self.total_tokens + end
         
-        # Keep track of position in overall sequence
+        # Keep track of position in overall sequence and collect tokens
         current_pos = 0
+        collected_tokens = []
         
         # Iterate through files in reverse (from earliest to latest)
         for mmap, length in zip(self.file_maps[::-1], self.file_lengths[::-1]):
@@ -66,16 +69,18 @@ class CustomBinFileDataset(Dataset):
                 file_start = max(0, start_in_sequence - current_pos)
                 file_end = min(length, end_in_sequence - current_pos)
                 
-                # Copy tokens to chunk
+                # Collect tokens from this file
                 tokens_to_copy = file_end - file_start
-                chunk[chunk_start:chunk_start + tokens_to_copy] = mmap[file_start:file_end]
-                chunk_start += tokens_to_copy
+                collected_tokens.extend(mmap[file_start:file_end])
                 
-                if chunk_start == end - start:
+                if len(collected_tokens) == end - start:
                     break
                     
             current_pos = next_pos
 
+        # Put collected tokens at the end of chunk (left padding)
+        chunk[-len(collected_tokens):] = collected_tokens
+        
         input_ids = torch.from_numpy(chunk.astype(np.int64))
         if self.debug:
             print("Detokenized text:")
