@@ -5,6 +5,7 @@ import random
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, default_data_collator
 from accelerate import Accelerator
+from accelerate.utils import DistributedDataParallelKwargs
 import wandb
 from tqdm import tqdm
 from torch.nn.utils import clip_grad_norm_
@@ -68,11 +69,14 @@ def main():
     # tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 
     # Accelerator
-    accelerator = Accelerator()
+    # kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
+    accelerator = Accelerator(mixed_precision='fp16')
     device = accelerator.device
     print(f"device: {device}")
 
+
     # Enable gradient checkpointing
+    print("Enabling gradient checkpointing")
     model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
 
     # Load dataset
@@ -89,6 +93,7 @@ def main():
         dataset = torch.load(args.dataset)
 
 
+    print(f"Dataset size: {len(dataset)}")
     # Create dataloader
     dataloader = DataLoader(
         dataset,
@@ -101,11 +106,23 @@ def main():
 
     # Optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    print("Model, optimizer, dataloader created")
 
     # Prepare for accelerator
-    model, optimizer, dataloader = accelerator.prepare(model, optimizer, dataloader)
+    print("Preparing for accelerator")
+    # model, optimizer, dataloader = accelerator.prepare(model, optimizer, dataloader)
+    
+    print("Preparing model")
+    model = accelerator.prepare(model)
+
+    print("Preparing optimizer")
+    optimizer = accelerator.prepare(optimizer)
+
+    print("Preparing dataloader")
+    dataloader = accelerator.prepare(dataloader)
 
     # Train model
+    print("Training model")
     train(model, accelerator, dataloader, optimizer, args.output_dir)
 
     
