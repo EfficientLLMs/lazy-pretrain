@@ -1,0 +1,55 @@
+Overall Model Metrics:
+Maximum LE: 1.4692
+Mean LE: 0.7586
+Variance: 0.0162
+Positive LEs: 512
+
+Layer-wise Analysis:
+
+Layer 0:
+Attention Component:
+  Max LE: 2.2513
+  Mean LE: 0.2558
+MLP Component:
+  Max LE: 2.2787
+  Mean LE: 1.2470
+
+Layer 1:
+Attention Component:
+  Max LE: 0.5540
+  Mean LE: -0.0092
+MLP Component:
+  Max LE: 1.0161
+  Mean LE: -0.2790
+
+Layer 2:
+Attention Component:
+  Max LE: 0.4355
+  Mean LE: -0.0066
+MLP Component:
+  Max LE: 1.5488
+  Mean LE: -0.4528
+
+Layer 3:
+Attention Component:
+  Max LE: 0.3363
+  Mean LE: 0.0062
+MLP Component:
+  Max LE: 0.4409
+  Mean LE: -0.5015
+
+Layer 4:
+Attention Component:
+  Max LE: 0.5305
+  Mean LE: 0.0005
+MLP Component:
+  Max LE: 0.9869
+  Mean LE: -0.2754
+
+Layer 5:
+Attention Component:
+  Max LE: 0.5189
+  Mean LE: 0.0292
+MLP Component:
+  Max LE: 1.0559
+  Mean LE: -0.1535

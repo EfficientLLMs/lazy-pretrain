@@ -1,0 +1,70 @@
+{
+  "arc_challenge": {
+    "alias": "arc_challenge",
+    "acc,none": 0.18088737201365188,
+    "acc_stderr,none": 0.01124857446740703,
+    "acc_norm,none": 0.2235494880546075,
+    "acc_norm_stderr,none": 0.012174896631202614
+  },
+  "arc_easy": {
+    "alias": "arc_easy",
+    "acc,none": 0.382996632996633,
+    "acc_stderr,none": 0.009974920384536482,
+    "acc_norm,none": 0.34974747474747475,
+    "acc_norm_stderr,none": 0.009785578618940732
+  },
+  "hellaswag": {
+    "alias": "hellaswag",
+    "acc,none": 0.2674765982871938,
+    "acc_stderr,none": 0.004417384102398645,
+    "acc_norm,none": 0.2764389563831906,
+    "acc_norm_stderr,none": 0.0044632244454710064
+  },
+  "lambada_openai": {
+    "alias": "lambada_openai",
+    "perplexity,none": 106.81089219460772,
+    "perplexity_stderr,none": 4.474743022558703,
+    "acc,none": 0.23830778187463614,
+    "acc_stderr,none": 0.0059356863521748725
+  },
+  "logiqa": {
+    "alias": "logiqa",
+    "acc,none": 0.19969278033794163,
+    "acc_stderr,none": 0.015680245966420595,
+    "acc_norm,none": 0.2887864823348694,
+    "acc_norm_stderr,none": 0.01777590633653923
+  },
+  "logiqa2": {
+    "alias": "logiqa2",
+    "acc,none": 0.23091603053435114,
+    "acc_stderr,none": 0.010632265887254218,
+    "acc_norm,none": 0.2703562340966921,
+    "acc_norm_stderr,none": 0.01120561094282711
+  },
+  "openbookqa": {
+    "alias": "openbookqa",
+    "acc,none": 0.14,
+    "acc_stderr,none": 0.015533272840269646,
+    "acc_norm,none": 0.254,
+    "acc_norm_stderr,none": 0.019486596801643375
+  },
+  "piqa": {
+    "alias": "piqa",
+    "acc,none": 0.5963003264417845,
+    "acc_stderr,none": 0.011447407541749088,
+    "acc_norm,none": 0.5875952121871599,
+    "acc_norm_stderr,none": 0.011485407152743146
+  },
+  "sciq": {
+    "alias": "sciq",
+    "acc,none": 0.653,
+    "acc_stderr,none": 0.015060472031706622,
+    "acc_norm,none": 0.575,
+    "acc_norm_stderr,none": 0.015640320317040105
+  },
+  "winogrande": {
+    "alias": "winogrande",
+    "acc,none": 0.5295974743488555,
+    "acc_stderr,none": 0.014027843827840083
+  }
+}
