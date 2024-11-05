@@ -5,16 +5,19 @@
 #SBATCH --output=.slurm_logs/eval_full_70m_step140000_410m_eval_results_1b_1e-5.out
 #SBATCH --time=01-00:00
 #SBATCH --mail-type=ALL
+#SBATCH -p preempt
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
 
 
 # --lora_path "models/pythia-70m-step140000-to-pythia-410m-lora-alpha256-allmod" \
+# pythia-70m-step142000-to-pythia-410m-full-1b-1e-5
 
 python src/eval_llm.py \
-    --base_model_path "models/pythia-70m-step140000-to-pythia-410m" \
+    --base_model_path "models/pythia-70m-step142000-to-pythia-410m" \
     --tokenizer_path "EleutherAI/pythia-70m" \
-    --eval_results_path "eval/full_70m_step140000_410m_eval_results_1b_1e-5" \
-    --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa"
+    --eval_results_path "eval/raw_70m_step142000_410m_eval_results" \
+    --tasks "paloma" "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
+    --token ".token"
 
 
 # python src/eval_llm.py \

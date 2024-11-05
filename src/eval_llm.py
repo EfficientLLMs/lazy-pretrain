@@ -3,7 +3,7 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 from accelerate import Accelerator
-
+import huggingface_hub
 
 def evaluate_model(
     model_path: str,
@@ -155,6 +155,10 @@ def parse_args():
         "--parallelize", action="store_true"
     )
 
+    parser.add_argument(
+        "--token", type=str, default=None, help="HuggingFace token for private dataset"
+    )
+
     return parser.parse_args()
 
 
@@ -164,6 +168,15 @@ if __name__ == "__main__":
     args = parse_args()
 
     print('Number of gpus:', torch.cuda.device_count())
+
+    # Log into HuggingFace
+    if args.token is not None:
+        # Read token from file
+        with open(args.token, 'r') as f:
+            token = f.read().strip()
+        # Log into HuggingFace
+        huggingface_hub.login(token=token)
+
 
     if args.lora_path is None:
         results = evaluate_model(

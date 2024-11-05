@@ -185,3 +185,4 @@ data
 # eval
 eval/*_full.txt
 
+.token
