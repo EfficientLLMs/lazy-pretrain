@@ -59,7 +59,7 @@ def evaluate_model(
         print("Starting evaluation...")
         results = evaluator.simple_evaluate(
             model="hf",
-            model_args=f"pretrained={tmp_dir},parallelize={parallelize}",
+            model_args=f"pretrained={tmp_dir},parallelize={parallelize},logits_cache=False",
             tasks=tasks,
             num_fewshot=num_fewshot,
             batch_size=batch_size,
