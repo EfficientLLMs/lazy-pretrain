@@ -106,7 +106,7 @@ cd lm-evaluation-harness
 pip install -e .
 ```
 
-After installing the package, you can evaluate the model using the following command. You can specify the tasks you want to evaluate the model on along with the paths to the model, tokenizer, and the results file. 
+After installing the package, you can evaluate the model using the following command. You can specify the tasks you want to evaluate the model on along with the paths to the model, tokenizer, and the results file. Also specify the path to the file containing your Hugging Face API token (`.token`). The script will read the first line of the file to get the token.
 
 ```bash
 python src/eval_llm.py \
@@ -116,7 +116,8 @@ python src/eval_llm.py \
     --eval_results_path "eval/r256_410m_1.4b_eval_results" \
     --parallelize \
     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
-    --batch_size 8
+    --batch_size 8 \
+    --token ".token"
 ```
 
 You can run this command using `sbatch` if by running the following command. Ensure that you modify the script to include your email ID.
