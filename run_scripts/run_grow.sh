@@ -22,7 +22,7 @@ python src/grow/grow.py \
     --large_depth 24 \
     --large_width 1024 \
     --depth_growth "alternate" \
-    --output_dir "models/pythia-70m-step140000-to-pythia-410m" \
-    --checkpoint_step "step140000"
+    --output_dir "models-xinyue/pythia-70m-step143000-to-pythia-410m" \
+    --checkpoint_step "step143000"
     
 # "step3000",

@@ -70,7 +70,8 @@ def main():
 
     # Accelerator
     # kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
-    accelerator = Accelerator(mixed_precision='fp16')
+    # accelerator = Accelerator(mixed_precision='fp16')
+    accelerator = Accelerator()
     device = accelerator.device
     print(f"device: {device}")
 
@@ -87,13 +88,13 @@ def main():
             num_tokens=args.num_tokens,
             chunk_size=args.chunk_size
         )
-        total_tokens = len(dataset) * args.chunk_size
-        assert total_tokens == args.num_tokens
+        # total_tokens = len(dataset) * args.chunk_size
+        # assert total_tokens == args.num_tokens
     else:
         dataset = torch.load(args.dataset)
 
 
-    print(f"Dataset size: {len(dataset)}")
+    # print(f"Dataset size: {len(dataset)}")
     # Create dataloader
     dataloader = DataLoader(
         dataset,
