@@ -10,6 +10,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, default_data_colla
 from peft import LoraConfig, PeftModel, get_peft_model
 from accelerate import Accelerator
 import wandb
+import os
 from tqdm import tqdm
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import Dataset, DataLoader
@@ -96,7 +97,15 @@ def seed_all(seed):
     torch.cuda.manual_seed_all(seed)
 
 
-def train(model, accelerator, dataloader, optimizer, output_dir, debug=False):
+def train(
+    model,
+    accelerator,
+    dataloader,
+    optimizer,
+    output_dir,
+    debug=False,
+    checkpoint_dir=None
+):
     
     model.train()
     total_loss = 0.0
@@ -105,14 +114,14 @@ def train(model, accelerator, dataloader, optimizer, output_dir, debug=False):
     batch_loss = 0.0
     batch_ppl = 0.0
 
+    tokens_seen = 0
+
+    prev_checkpoint = None
+
     if accelerator.is_main_process:
         print("Start training...")
 
     for step, batch in enumerate(tqdm(dataloader)):
-        if accelerator.is_main_process:
-            if step % 100 == 0:
-                print(f"Training step {step}, loss: {batch_loss:.2f}, ppl: {batch_ppl:.2f}")
-
 
         optimizer.zero_grad()
         outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
@@ -131,6 +140,31 @@ def train(model, accelerator, dataloader, optimizer, output_dir, debug=False):
 
         total_loss += batch_loss
         total_ppl += batch_ppl
+
+        tokens_seen += batch['input_ids'].numel()
+
+        if accelerator.is_main_process:
+            if step % 100 == 0:
+                print(f"Training step {step}, loss: {batch_loss:.2f}, ppl: {batch_ppl:.2f}")
+
+                # Save checkpoint
+                if checkpoint_dir is not None:
+
+                    # Delete previous checkpoint directory
+                    if prev_checkpoint is not None:
+                        
+                        prev_checkpoint_path = checkpoint_dir + "/" + str(prev_checkpoint)
+                        
+                        for file in os.listdir(prev_checkpoint_path):
+                            os.remove(os.path.join(prev_checkpoint_path, file))
+
+                        print(f"Deleted previous checkpoint {prev_checkpoint}")
+                    
+                    prev_checkpoint = tokens_seen
+                    print(f"Saving checkpoint {prev_checkpoint} to directory {checkpoint_dir}")
+                    model.module.save_pretrained(checkpoint_dir + "/" + str(prev_checkpoint))
+
+                    print(f"Saved checkpoint to {checkpoint_dir}/{prev_checkpoint}")
 
         if debug and step > 5:
             break

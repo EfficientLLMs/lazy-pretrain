@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=eval_70m_raw
+#SBATCH --job-name=eval_full_70m_step142000_410m_eval_results_2b_1e-5
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:A6000:2
-#SBATCH --output=.slurm_logs/eval_70m_raw.out
+#SBATCH --output=.slurm_logs/eval_full_70m_step142000_410m_eval_results_2b_1e-5.out
 #SBATCH --time=01-00:00
 #SBATCH --mail-type=ALL
 #SBATCH -p preempt
