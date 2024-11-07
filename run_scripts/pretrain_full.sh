@@ -18,7 +18,7 @@ MODEL_NAME="pythia-70m-"$STEP"-to-pythia-410m"
 GROWN_MODEL="models/"$MODEL_NAME
 TRAINED_MODEL="models/"$MODEL_NAME"-"$EXP_NAME
 
-Grow model if grown model does not exist yet
+# Grow model if grown model does not exist yet
 if [ ! -d $GROWN_MODEL ]; then
     echo "Growing model..."
     python src/grow/grow.py \

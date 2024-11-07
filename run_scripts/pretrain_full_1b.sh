@@ -17,21 +17,21 @@ MODEL_NAME="pythia-70m-"$STEP"-to-pythia-410m"
 GROWN_MODEL="models/"$MODEL_NAME
 TRAINED_MODEL="models/"$MODEL_NAME"-"$EXP_NAME
 
-Grow model if grown model does not exist yet
-if [ ! -d $GROWN_MODEL ]; then
-    echo "Growing model..."
-    python src/grow/grow.py \
-        --small_model "pythia-70m" \
-        --large_depth 24 \
-        --large_width 1024 \
-        --depth_growth "alternate" \
-        --output_dir $GROWN_MODEL \
-        --checkpoint_step $STEP
-fi
+# Grow model if grown model does not exist yet
+# if [ ! -d $GROWN_MODEL ]; then
+#     echo "Growing model..."
+#     python src/grow/grow.py \
+#         --small_model "pythia-70m" \
+#         --large_depth 24 \
+#         --large_width 1024 \
+#         --depth_growth "alternate" \
+#         --output_dir $GROWN_MODEL \
+#         --checkpoint_step $STEP
+# fi
 
-echo "Grown model path: "$GROWN_MODEL
+# echo "Grown model path: "$GROWN_MODEL
 
-echo "Starting full model pretraining..."
+# echo "Starting full model pretraining..."
 # Pretrain full model
 accelerate launch src/pretrain/pretrain_full.py \
     --grown_model $GROWN_MODEL \

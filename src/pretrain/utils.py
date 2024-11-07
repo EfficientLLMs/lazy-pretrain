@@ -157,6 +157,7 @@ def train(
                         
                         for file in os.listdir(prev_checkpoint_path):
                             os.remove(os.path.join(prev_checkpoint_path, file))
+                        os.rmdir(prev_checkpoint_path)
 
                         print(f"Deleted previous checkpoint {prev_checkpoint}")
                     
