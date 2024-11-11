@@ -7,6 +7,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, default_data_colla
 from accelerate import Accelerator
 from accelerate.utils import DistributedDataParallelKwargs
 import wandb
+import os
 from tqdm import tqdm
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import Dataset, DataLoader
@@ -52,6 +53,10 @@ def parse_args():
                         help='The target number of tokens of the dataset')
     parser.add_argument('--chunk_size', type=int, default=512,
                         help='Chunk size for tokenized content')
+    parser.add_argument('--resume', action='store_true',
+                        help='Whether to resume training from a checkpoint')
+    parser.add_argument('--checkpoint_dir', type=str, default='checkpoints/pythia-70m-to-pythia-410m',
+                        help='Directory to save the checkpoints')
     
     args = parser.parse_args()
     return args
@@ -65,7 +70,24 @@ def main():
     seed_all(args.seed)
 
     # Load model
-    model = AutoModelForCausalLM.from_pretrained(args.grown_model)
+    if args.checkpoint_dir is not None:
+        if not os.path.exists(args.checkpoint_dir):
+            os.makedirs(args.checkpoint_dir)
+
+    if args.resume:
+        # Find the latest checkpoint
+        checkpoints = os.listdir(args.checkpoint_dir)
+        tokens_seen = [int(ckpt.split(".")[0]) for ckpt in checkpoints]
+        latest_checkpoint = max(tokens_seen)
+        
+        # Load the latest checkpoint
+        model = AutoModelForCausalLM.from_pretrained(args.checkpoint_dir + f"/{latest_checkpoint}.pt")
+        print(f"Resuming training from checkpoint {latest_checkpoint}")
+
+        args.num_tokens = args.num_tokens - latest_checkpoint
+
+    else:
+        model = AutoModelForCausalLM.from_pretrained(args.grown_model)
     # tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 
     # Accelerator
@@ -124,8 +146,7 @@ def main():
 
     # Train model
     print("Training model")
-    train(model, accelerator, dataloader, optimizer, args.output_dir)
-
+    train(model, accelerator, dataloader, optimizer, args.output_dir, debug=False, checkpoint_dir=args.checkpoint_dir)
     
 
 if __name__ == '__main__':
