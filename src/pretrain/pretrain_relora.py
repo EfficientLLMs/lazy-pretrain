@@ -93,6 +93,7 @@ def main():
     # wandb
     if accelerator.is_main_process:
         wandb.init(
+            entity="irisiris",
             project="relora-pretraining",
             config={
                 "model": args.grown_model,

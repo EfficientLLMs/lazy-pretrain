@@ -1,12 +1,14 @@
 #!/bin/bash
 #SBATCH --job-name=pythia-70m-step143000-1b-relora
 #SBATCH --mem=80G
-#SBATCH --gres=gpu:A6000:8
+#SBATCH --gres=gpu:L40S:8
 #SBATCH --partition=general
 #SBATCH --output=.slurm_logs/pythia-70m-step143000-1b-relora.out
 #SBATCH --time=02-00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=xinyuel4@andrew.cmu.edu
+
+export NCCL_P2P_DISABLE=1
 
 accelerate launch src/pretrain/pretrain_relora.py \
     --grown_model "models-xinyue/pythia-70m-step143000-to-pythia-410m" \
