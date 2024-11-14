@@ -2,6 +2,7 @@
 #SBATCH --job-name=pythia-70m-step143000-1b-relora-new
 #SBATCH --mem=80G
 #SBATCH --gres=gpu:A6000:8
+#SBATCH --exclude=babel-1-23
 #SBATCH --partition=general
 #SBATCH --output=.slurm_logs/pythia-70m-step143000-1b-relora-new.out
 #SBATCH --time=01-00:00

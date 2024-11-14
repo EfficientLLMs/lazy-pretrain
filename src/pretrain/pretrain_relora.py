@@ -81,48 +81,10 @@ def main():
     # Set seed
     seed_all(args.seed)
 
-    # Load model
-    model = AutoModelForCausalLM.from_pretrained(args.grown_model)
-    model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
-
     # Accelerator
     accelerator = Accelerator()
     device = accelerator.device
     print(f"device: {device}")
-
-    # wandb
-    if accelerator.is_main_process:
-        wandb.init(
-            entity="irisiris",
-            project="relora-pretraining",
-            config={
-                "model": args.grown_model,
-                "rank": args.rank,
-                "lora_alpha": args.lora_alpha,
-                "batch_size": args.batch_size,
-                "lr": args.lr,
-                "scheduler": args.scheduler,
-                "relora_steps": args.relora_steps,
-                "cycle_length": args.cycle_length,
-                "warmup_steps": args.warmup_steps,
-                "min_lr_ratio": args.min_lr_ratio,
-            }
-        )
-
-    # Use ReLoRA
-    model = ReLoRaModel(
-        model,
-        target_modules="all-linear",
-        r=args.rank,
-        lora_alpha=args.lora_alpha,
-        lora_dropout=0.05,
-        # it doesn't have these parameters
-        # bias="none",  
-        # task_type="CAUSAL_LM",
-        keep_original_weights=True,
-        lora_only=False,
-        trainable_scaling=False,
-    )
 
     # Load dataset
     if args.use_on_the_fly:
@@ -145,9 +107,60 @@ def main():
         num_workers=1,
         pin_memory=True
     )
-    total_steps = len(dataloader)
+
+    total_batches = len(dataloader)
+    num_gpus = accelerator.num_processes
+    steps_per_gpu = total_batches // num_gpus
+    num_restarts = 20
+    cycle_length = steps_per_gpu // num_restarts
+
+    # wandb
     if accelerator.is_main_process:
-        print(f"Total training steps: {total_steps}")
+        print(f"\nTraining configuration:")
+        print(f"Total batches: {total_batches}")
+        print(f"Number of GPUs: {accelerator.num_processes}")
+        print(f"Steps per GPU: {steps_per_gpu}")
+        print(f"Number of restarts: {num_restarts}")
+        print(f"Cycle length: {cycle_length}")
+        print(f"Warmup steps per cycle: {args.warmup_steps}")
+
+        wandb.init(
+            entity="irisiris",
+            project="relora-pretraining",
+            config={
+                "model": args.grown_model,
+                "rank": args.rank,
+                "lora_alpha": args.lora_alpha,
+                "batch_size": args.batch_size,
+                "lr": args.lr,
+                "scheduler": args.scheduler,
+                "relora_steps": cycle_length,  # Updated to match cycle_length
+                "cycle_length": cycle_length,  # Updated based on calculation
+                "warmup_steps": args.warmup_steps,
+                "min_lr_ratio": args.min_lr_ratio,
+                "total_steps_per_gpu": steps_per_gpu,
+                "num_restarts": num_restarts,
+            }
+        )
+
+    # Load model
+    model = AutoModelForCausalLM.from_pretrained(args.grown_model, device_map=device)
+    model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+
+    # Use ReLoRA
+    model = ReLoRaModel(
+        model,
+        target_modules="all-linear",
+        r=args.rank,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=0.05,
+        # it doesn't have these parameters
+        # bias="none",  
+        # task_type="CAUSAL_LM",
+        keep_original_weights=True,
+        lora_only=False,
+        trainable_scaling=False,
+    )
 
     # Optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
@@ -156,23 +169,30 @@ def main():
     scheduler = get_scheculer(
         optimizer,
         scheduler_type=args.scheduler,
-        num_training_steps=total_steps,
+        num_training_steps=steps_per_gpu,
         warmup_steps=args.warmup_steps,
         min_lr_ratio=args.min_lr_ratio,
-        cycle_length=args.cycle_length,
+        cycle_length=cycle_length,
         restart_warmup_steps=args.restart_warmup_steps
     )
 
     # Prepare for accelerator
+    print("\nPreparing for accelerator...")
     model, optimizer, dataloader, scheduler = accelerator.prepare(
-        model, 
-        optimizer, 
-        dataloader, 
-        scheduler
+        model, optimizer, dataloader, scheduler
     )
 
     # Train model
-    train_relora(model, accelerator, dataloader, optimizer, scheduler, args, args.output_dir)
+    args.relora_steps = cycle_length  # Update the number of steps
+    train_relora(
+        model, 
+        accelerator, 
+        dataloader, 
+        optimizer, 
+        scheduler, 
+        args,
+        args.output_dir
+    )
 
     
 

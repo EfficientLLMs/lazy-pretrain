@@ -87,6 +87,13 @@ def get_scheculer(
         )
     if scheduler_type == "cosine_restarts":
         assert restart_warmup_steps is not None, "restart_warmup_steps must be specified for cosine_restarts scheduler"
+        print("\nScheduler Configuration:")
+        print(f"  num_training_steps: {num_training_steps}")
+        print(f"  first_warmup_steps: {warmup_steps}")
+        print(f"  restart_warmup_steps: {restart_warmup_steps}")
+        print(f"  cycle_length: {cycle_length}")
+        print(f"  min_lr_ratio: {min_lr_ratio}")
+        print(f"  expected number of restarts: {num_training_steps // cycle_length}")
         return get_cosine_schedule_with_multiple_warmups(
             optimizer,
             num_training_steps=num_training_steps,
@@ -424,100 +431,105 @@ def train_relora(model, accelerator, dataloader, optimizer, scheduler, args, out
     Training loop for ReLoRA.
     """
     model.train()
-    total_loss = 0.0
-    total_ppl = 0.0
-    batch_loss = 0.0
-    batch_ppl = 0.0
+    
+    # Debug prints from all processes
+    print(f"\nProcess {accelerator.process_index} debug info:")
+    print(f"  Device: {accelerator.device}")
+    print(f"  Is main process: {accelerator.is_main_process}")
+    print(f"  Model device: {next(model.parameters()).device}")
+    print(f"  Is model training: {model.training}")
+
+    # Synchronize before starting training loop
+    print(f"\nProcess {accelerator.process_index} waiting for synchronization...")
+    accelerator.wait_for_everyone()
+    print(f"Process {accelerator.process_index} synchronized")
 
     if accelerator.is_main_process:
-        print("Start ReLoRA training...")
+        print("\nStarting training loop...")
+        progress_bar = tqdm(total=len(dataloader), desc="Training")
+    
+    for step, batch in enumerate(dataloader):
+        try:
+            # ReLoRA reset
+            if step > 0 and step % args.relora_steps == 0:
+                if accelerator.is_main_process:
+                    print(f"\nPerforming LoRA reset at step {step}")
+                
+                # Synchronize before model manipulation
+                accelerator.wait_for_everyone()
+                
+                # 1. Get unwrapped model and perform reset
+                unwrapped_model = accelerator.unwrap_model(model)
+                unwrapped_model.merge_and_reinit()
+                
+                # 2. Reset optimizer state for LoRA parameters
+                lora_params = [p for n, p in unwrapped_model.named_parameters() if "lora_" in n]
+                optimizer_reset(
+                    optimizer,
+                    reset_params=lora_params,
+                    optimizer_state_keys=["exp_avg", "exp_avg_sq"],
+                    reset_optimizer_on_relora=True,
+                    optimizer_random_pruning=0.0,
+                    optimizer_magnitude_pruning=0.0,
+                )
+                
+                # Synchronize after model manipulation
+                accelerator.wait_for_everyone()
+                
+                if accelerator.is_main_process:
+                    wandb.log({"relora_reset": step}, step=step)
+                    print("LoRA reset complete")
 
-    for step, batch in enumerate(tqdm(dataloader)):
-        # ReLoRA reset
-        if step > 0 and step % args.relora_steps == 0:
-            if accelerator.is_main_process:
-                print(f"\nPerforming LoRA reset at step {step}")
+            # Regular training step
+            optimizer.zero_grad()
+            outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
+            loss = outputs.loss
             
-            # 1. Get unwrapped model and perform reset
-            unwrapped_model = accelerator.unwrap_model(model)
-            unwrapped_model.merge_and_reinit()
-            
-            # 2. Reset optimizer state for LoRA parameters
-            lora_params = [p for n, p in unwrapped_model.named_parameters() if "lora_" in n]
-            optimizer_reset(
-                optimizer,
-                reset_params=lora_params,
-                optimizer_state_keys=["exp_avg", "exp_avg_sq"],
-                reset_optimizer_on_relora=True,
-                optimizer_random_pruning=0.0,
-                optimizer_magnitude_pruning=0.0,
-            )
-            
+            accelerator.backward(loss)
+            clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            scheduler.step()
+
+            # Get loss values
+            loss_value = accelerator.gather(loss).mean().item()
+            ppl_value = torch.exp(torch.tensor(loss_value)).item()
+            current_lr = scheduler.get_last_lr()[0]
+
+            # Logging
             if accelerator.is_main_process:
                 wandb.log({
-                    "relora_reset": step,
+                    "loss": loss_value,
+                    "ppl": ppl_value,
+                    "learning_rate": current_lr,
+                    "step": step,
                 }, step=step)
-                print("LoRA reset complete")
+                
+                progress_bar.update(1)
+                if step % 100 == 0:
+                    print(f"Step {step}, loss: {loss_value:.4f}, ppl: {ppl_value:.2f}, lr: {current_lr:.2e}")
 
-        # Regular training step
-        optimizer.zero_grad()
-        outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
-        loss = outputs.loss
+            if args.debug and step > 5:
+                break
 
-        accelerator.backward(loss)
-        clip_grad_norm_(model.parameters(), max_norm=1.0)
-        
-        optimizer.step()
-        scheduler.step()  # Important: update learning rate
+        except Exception as e:
+            print(f"Error during training step {step}: {str(e)}")
+            raise e
 
-        batch_loss = loss.item()
-        batch_ppl = torch.exp(loss).item()
-        current_lr = scheduler.get_last_lr()[0]
-
-        total_loss += batch_loss
-        total_ppl += batch_ppl
-
-        # Logging
-        if accelerator.is_main_process:
-            # Log every step
-            wandb.log({
-                "loss": batch_loss,
-                "ppl": batch_ppl,
-                "learning_rate": current_lr,
-                "step": step,
-            }, step=step)
-            
-            # Print every 100 steps
-            if step % 100 == 0:
-                print(f"Step {step}, loss: {batch_loss:.4f}, ppl: {batch_ppl:.2f}, lr: {current_lr:.2e}")
-
-        if args.debug and step > 5:
-            break
-
-    # Compute averages
-    if args.debug:
-        print("Debug mode is on. Training stopped early.")
-        avg_loss = total_loss / 5
-        avg_ppl = total_ppl / 5
-    else:
-        avg_loss = total_loss / len(dataloader)
-        avg_ppl = total_ppl / len(dataloader)
+    # Synchronize before finishing
+    accelerator.wait_for_everyone()
 
     if accelerator.is_main_process:
-        print(f"Training finished. Average loss: {avg_loss:.4f}, Average PPL: {avg_ppl:.2f}")
-        wandb.log({
-            "final_loss": avg_loss,
-            "final_ppl": avg_ppl,
-        }, step=step)
+        print(f"Training finished.")
+        progress_bar.close()
         wandb.finish()
 
-    # Save model
-    if accelerator.is_main_process and not args.debug:
-        unwrapped_model = accelerator.unwrap_model(model)
-        unwrapped_model.save_pretrained(
-            output_dir,
-            is_main_process=accelerator.is_main_process,
-            save_function=accelerator.save,
-        )
+        # Save model
+        if not args.debug:
+            unwrapped_model = accelerator.unwrap_model(model)
+            unwrapped_model.save_pretrained(
+                output_dir,
+                is_main_process=accelerator.is_main_process,
+                save_function=accelerator.save,
+            )
 
-    return avg_loss, avg_ppl
+    return None  # Return values aren't needed in distributed setting
