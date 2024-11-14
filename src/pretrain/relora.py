@@ -151,8 +151,24 @@ class ReLoRaModel(torch.nn.Module):
             if isinstance(module, ReLoRaLinear):
                 module.merge_and_reinit()
 
-    def save_pretrained(self, path):
-        self.wrapped_model.save_pretrained(path)
+    def save_pretrained(self, path, is_main_process=True, save_function=None):
+        if not is_main_process:
+            return
+
+        os.makedirs(path, exist_ok=True)
+
+        # merge into the original weights before saving
+        self.merge_and_reinit()
+
+        # save model config
+        self.wrapped_model.config.save_pretrained(path)
+
+        if save_function is not None:
+            state_dict = self.wrapped_model.state_dict()
+            save_function(state_dict, os.path.join(path, "pytorch_model.bin"))
+        else:
+            self.wrapped_model.save_pretrained(path)
+
         with open(os.path.join(path, "relora_config.json"), "w") as f:
             json.dump(self._config.__dict__, f, indent=4)
 
