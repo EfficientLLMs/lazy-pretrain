@@ -55,7 +55,7 @@ def parse_args():
                         help='Chunk size for tokenized content')
     parser.add_argument('--resume', action='store_true',
                         help='Whether to resume training from a checkpoint')
-    parser.add_argument('--checkpoint_dir', type=str, default='checkpoints/pythia-70m-to-pythia-410m',
+    parser.add_argument('--checkpoint_dir', type=str, default=None,
                         help='Directory to save the checkpoints')
     
     args = parser.parse_args()
