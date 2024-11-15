@@ -189,3 +189,5 @@ eval/*_full.txt
 
 # Checkpoints
 checkpoints/
+
+wandb/

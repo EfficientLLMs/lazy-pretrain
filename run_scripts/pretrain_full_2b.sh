@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=6b_full-1e-5-pythia-70m-step141000-to-pythia-410m
+#SBATCH --job-name=2b_full-1e-5-pythia-70m-step143000-to-pythia-410m
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:A100_40GB:4
-#SBATCH --output=.slurm_logs/6b_full-1e-5-pythia-70m-step141000-to-pythia-410m.out
+#SBATCH --output=.slurm_logs/2b_full-1e-5-pythia-70m-step143000-to-pythia-410m.out
 #SBATCH --time=02-00:00
 #SBATCH --mail-type=ALL
 #SBATCH --exclude=shire-1-6,shire-1-10,babel-1-27
@@ -10,8 +10,8 @@
 
 
 # Define variables
-EXP_NAME="6b_full-1e-5"
-STEP="step140000"
+EXP_NAME="2b_full-1e-5"
+STEP="step143000"
 MODEL_NAME="pythia-70m-"$STEP"-to-pythia-410m"
 
 GROWN_MODEL="models/"$MODEL_NAME
@@ -43,7 +43,7 @@ accelerate launch src/pretrain/pretrain_full.py \
     --use_on_the_fly \
     --first_idx 19 \
     --last_idx 20 \
-    --num_tokens 6_000_000_000 \
+    --num_tokens 2_000_000_000 \
     --chunk_size 512
     
     # --checkpoint_dir "checkpoints/"$EXP_NAME"-"$MODEL_NAME

@@ -80,6 +80,8 @@ def evaluate_merged_model(
     """
     Simple evaluation of a model after merging LoRA weights.
     """
+
+    print("Using merged model.")
     
     # Load tokenizer
     tokenizer_path = tokenizer_path or base_model_path
