@@ -26,7 +26,10 @@ accelerate launch src/pretrain/pretrain_relora.py \
     --num_tokens 2_000_000_000 \
     --chunk_size 512 \
     --scheduler "cosine_restarts" \
-    --min_lr_ratio 0.1
+    --min_lr_ratio 0.1 \
+    --wandb_entity "vibhamasti" \
+    --num_restarts 10
+
     # we don't need others; but we need to specify the num_restarts in the main code
     # --relora_steps 350 \
     # --cycle_length 350 \
