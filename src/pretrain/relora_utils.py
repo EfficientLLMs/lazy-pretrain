@@ -207,41 +207,33 @@ def _get_cosine_schedule_with_multiple_warmups_lambda(
     adjust_step,
 ):
     """
-    Args:
-        adjust_step: useful when continuing training from a warmed up checkpoint,
-            it allows to sync the resets by reducing the number of steps
-            after the first warmup and before the first reset.
-            Thus, your ReLoRA resets can be synced with the optimizer resets.
+    Global cosine decay with periodic resets.
+    The LR decays from 1.0 to min_lr_ratio over entire training,
+    with periodic resets and warmups.
     """
     assert 0 < min_lr_ratio <= 1.0, "min_lr_ratio must be in (0,1]"
     assert restart_every > 0, "restart_every must be positive"
     assert adjust_step + first_warmup_steps <= num_training_steps, "warmup + adjust_step is more than full training steps"
     assert adjust_step + first_warmup_steps <= restart_every, "the first reset will happen before the warmup is done"
 
+    # Calculate global decay factor based on total progress
+    progress = float(current_step) / float(num_training_steps)
+    global_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
+    target_lr = min_lr_ratio + (1.0 - min_lr_ratio) * global_decay
+
+    # Initial warmup
     if current_step < first_warmup_steps:
-        return float(current_step) / float(max(1, first_warmup_steps))
+        return float(current_step) / float(max(1, first_warmup_steps)) * 1.0  # Warmup to full LR
 
     _current_step = current_step + adjust_step
-
     restart_step = _current_step % restart_every
     restart_number = _current_step // restart_every
 
+    # Handle warmup after resets
     if restart_step < restart_warmup_steps and current_step >= restart_every:
-        # get expected lr multipler at the end of the warmup
-        end_of_warmup_progress = (
-            float(restart_number * restart_every + restart_warmup_steps - first_warmup_steps) /
-            float(max(1, num_training_steps - first_warmup_steps))
-        )
-
-        _cosine_decay = 0.5 * (1.0 + math.cos(math.pi * end_of_warmup_progress))
-        warmup_lr_multiplier = min_lr_ratio + (1.0 - min_lr_ratio) * _cosine_decay
+        return float(restart_step) / float(max(1, restart_warmup_steps)) * target_lr
     
-        return float(restart_step) / float(max(1, restart_warmup_steps)) * warmup_lr_multiplier
-
-    progress = float(_current_step - first_warmup_steps) / float(max(1, num_training_steps - first_warmup_steps))
-    cosine_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
-
-    return min_lr_ratio + (1.0 - min_lr_ratio) * cosine_decay
+    return target_lr
 
 
 def max_train_tokens_to_number(max_train_tokens):

@@ -24,8 +24,9 @@ accelerate launch src/pretrain/pretrain_relora.py \
     --num_tokens 1_000_000_000 \
     --chunk_size 512 \
     --scheduler "cosine_restarts" \
-    --relora_steps 350 \
-    --cycle_length 350 \
-    --warmup_steps 50 \
-    --restart_warmup_steps 50 \
     --min_lr_ratio 0.1
+    # we don't need others; but we need to specify the num_restarts in the main code
+    # --relora_steps 350 \
+    # --cycle_length 350 \
+    # --warmup_steps 50 \
+    # --restart_warmup_steps 50 \

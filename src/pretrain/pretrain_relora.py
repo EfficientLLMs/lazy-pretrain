@@ -111,18 +111,32 @@ def main():
     total_batches = len(dataloader)
     num_gpus = accelerator.num_processes
     steps_per_gpu = total_batches // num_gpus
-    num_restarts = 20
-    cycle_length = steps_per_gpu // num_restarts
+
+    # This should be specified based on the total number of tokens
+    # For 1B, I use 5 restarts
+    num_restarts = 5
+    desired_cycle_length = steps_per_gpu // num_restarts
+    cycle_length = desired_cycle_length * num_gpus
+    
+    desired_warmup_per_gpu = desired_cycle_length // num_restarts
+    warmup_steps = desired_warmup_per_gpu * num_gpus
+
+    # update the args
+    args.relora_steps = cycle_length
+    args.warmup_steps = warmup_steps
+    args.restart_warmup_steps = warmup_steps // 2
+    args.cycle_length = cycle_length
 
     # wandb
     if accelerator.is_main_process:
         print(f"\nTraining configuration:")
         print(f"Total batches: {total_batches}")
-        print(f"Number of GPUs: {accelerator.num_processes}")
+        print(f"Number of GPUs: {num_gpus}")
         print(f"Steps per GPU: {steps_per_gpu}")
+        print(f"Total steps: {steps_per_gpu * num_gpus}")
         print(f"Number of restarts: {num_restarts}")
         print(f"Cycle length: {cycle_length}")
-        print(f"Warmup steps per cycle: {args.warmup_steps}")
+        print(f"Warmup steps: {warmup_steps}")
 
         wandb.init(
             entity="irisiris",
@@ -134,9 +148,9 @@ def main():
                 "batch_size": args.batch_size,
                 "lr": args.lr,
                 "scheduler": args.scheduler,
-                "relora_steps": cycle_length,  # Updated to match cycle_length
-                "cycle_length": cycle_length,  # Updated based on calculation
-                "warmup_steps": args.warmup_steps,
+                "relora_steps": cycle_length,
+                "cycle_length": cycle_length,
+                "warmup_steps": warmup_steps,
                 "min_lr_ratio": args.min_lr_ratio,
                 "total_steps_per_gpu": steps_per_gpu,
                 "num_restarts": num_restarts,
@@ -169,11 +183,11 @@ def main():
     scheduler = get_scheculer(
         optimizer,
         scheduler_type=args.scheduler,
-        num_training_steps=steps_per_gpu,
-        warmup_steps=args.warmup_steps,
+        num_training_steps=steps_per_gpu * num_gpus,
+        warmup_steps=warmup_steps,
         min_lr_ratio=args.min_lr_ratio,
         cycle_length=cycle_length,
-        restart_warmup_steps=args.restart_warmup_steps
+        restart_warmup_steps=warmup_steps // 2,
     )
 
     # Prepare for accelerator
