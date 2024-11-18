@@ -1,25 +1,25 @@
 #!/bin/bash
-#SBATCH --job-name=eval_6b_full-1e-5-pythia-70m-step141000-to-pythia-410m
+#SBATCH --job-name=eval_pythia-70m-step141000-4b-relora-new
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:A6000:2
-#SBATCH --output=.slurm_logs/eval_6b_full-1e-5-pythia-70m-step141000-to-pythia-410m.out
+#SBATCH --output=.slurm_logs/eval_pythia-70m-step141000-4b-relora-new.out
 #SBATCH --time=01-00:00
-#SBATCH --exclude=shire-1-6,shire-1-10,babel-1-27,babel-1-31,babel-0-37
+#SBATCH --exclude=babel-1-23,babel-4-37
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=vmasti@andrew.cmu.edu
+#SBATCH --mail-user=xinyuel4@andrew.cmu.edu
 
 # Define variables
-EXP_NAME="6b_full-1e-5"
-STEP="step140000"
-MODEL_NAME="pythia-70m-"$STEP"-to-pythia-410m"
+# EXP_NAME="6b_full-1e-5"
+# STEP="step140000"
+# MODEL_NAME="pythia-70m-"$STEP"-to-pythia-410m"
 
-GROWN_MODEL="models/"$MODEL_NAME
-TRAINED_MODEL="models/"$MODEL_NAME"-"$EXP_NAME
+# GROWN_MODEL="models/"$MODEL_NAME
+# TRAINED_MODEL="models/"$MODEL_NAME"-"$EXP_NAME
 
 python src/eval_llm.py \
-    --base_model_path $TRAINED_MODEL \
-    --tokenizer_path "EleutherAI/pythia-70m" \
-    --eval_results_path "eval/eval_"$EXP_NAME"-"$MODEL_NAME \
+    --base_model_path "models-xinyue/pythia-70m-step141000-4b-relora-new" \
+    --tokenizer_path "EleutherAI/pythia-410m" \
+    --eval_results_path "eval/pythia-70m-step141000-4b-relora-new" \
     --tasks "paloma" "lambada_openai" \
     --token ".token"
 
