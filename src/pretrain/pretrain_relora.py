@@ -76,9 +76,13 @@ def parse_args():
     parser.add_argument('--warmup_steps', type=int, default=150)
     parser.add_argument('--restart_warmup_steps', type=int, default=150)  # same as the intial warmup
     parser.add_argument('--min_lr_ratio', type=float, default=0.1)  # decay to 0.1 * lr
+    parser.add_argument('--num_restarts', type=int, default=5)
     parser.add_argument('--do_extact_lora', action='store_true',
                         help='Whether to train only the lora_A and lora_B')
-    
+
+    # wandb
+    parser.add_argument('--wandb_entity', type=str, default='irisiris',
+                        help='Entity for wandb logging')
     args = parser.parse_args()
     return args
 
@@ -123,7 +127,7 @@ def main():
 
     # This should be specified based on the total number of tokens
     # For 1B, I use 5 restarts
-    num_restarts = 20
+    num_restarts = 5
     desired_cycle_length = steps_per_gpu // num_restarts
     cycle_length = desired_cycle_length * num_gpus
     
@@ -148,7 +152,7 @@ def main():
         print(f"Warmup steps: {warmup_steps}")
 
         wandb.init(
-            entity="irisiris",
+            entity=args.wandb_entity,
             project="relora-pretraining",
             config={
                 "model": args.grown_model,

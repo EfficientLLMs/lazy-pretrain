@@ -26,6 +26,7 @@ python src/pretrain/pretrain_relora.py \
     --scheduler "cosine_restarts" \
     --min_lr_ratio 0.1 \
     --wandb_entity "irisiris" \
+    --num_restarts 10 \
     --do_extact_lora
     # we don't need others; but we need to specify the num_restarts in the main code
     # --relora_steps 350 \
