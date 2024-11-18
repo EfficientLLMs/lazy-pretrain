@@ -135,7 +135,7 @@ def main():
     warmup_steps = desired_warmup_per_gpu * num_gpus
 
     # update the args
-    args.relora_steps = cycle_length
+    args.relora_steps = cycle_length // num_gpus  # yeah this is confusing
     args.warmup_steps = warmup_steps
     args.restart_warmup_steps = warmup_steps // 2
     args.cycle_length = cycle_length
@@ -234,7 +234,6 @@ def main():
     )
 
     # Train model
-    args.relora_steps = cycle_length  # Update the number of steps
     train_relora(
         model, 
         accelerator, 
