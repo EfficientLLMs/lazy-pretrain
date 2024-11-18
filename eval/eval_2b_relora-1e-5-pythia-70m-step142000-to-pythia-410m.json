@@ -1,0 +1,153 @@
+{
+  "lambada_openai": {
+    "alias": "lambada_openai",
+    "perplexity,none": 95.5257990401045,
+    "perplexity_stderr,none": 3.8983471074883913,
+    "acc,none": 0.24354744808849213,
+    "acc_stderr,none": 0.0059799108664674964
+  },
+  "paloma_4chan_meta_sep": {
+    "alias": "4chan",
+    "word_perplexity,none": 808.9985580716847,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.550888688143226,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.3509999461503102,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_c4_100_domains": {
+    "alias": "C4 100 Domains",
+    "word_perplexity,none": 117.7293325552253,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.216024603161148,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.147973898833644,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_c4_en": {
+    "alias": "C4",
+    "word_perplexity,none": 139.80067099945362,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.278098070566646,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.1878298554194564,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_dolma-v1_5": {
+    "alias": "Dolma V1.5",
+    "word_perplexity,none": 144.9790198382927,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.149818637563473,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.1042149566872361,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_dolma_100_programing_languages": {
+    "alias": "100 PLs",
+    "word_perplexity,none": 523.9984688976848,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 1.8081536836972112,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 0.8545173045700777,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_dolma_100_subreddits": {
+    "alias": "100 Subreddits",
+    "word_perplexity,none": 173.99688930627983,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.5020835212712655,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.323129948461657,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_falcon-refinedweb": {
+    "alias": "Falcon",
+    "word_perplexity,none": 167.9600262205197,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.367326204147258,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.2432585149783861,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_gab": {
+    "alias": "Gab",
+    "word_perplexity,none": 21883.08570801105,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 3.8394900737867053,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.9409147180117048,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_m2d2_s2orc_unsplit": {
+    "alias": "M2D2 S2ORC",
+    "word_perplexity,none": 76.57670108656798,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.1367406629270365,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.095411818145975,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_m2d2_wikipedia_unsplit": {
+    "alias": "M2D2 Wikipedia",
+    "word_perplexity,none": 129.07978516807887,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.186782038294995,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.1288094307465495,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_manosphere_meta_sep": {
+    "alias": "Manosphere",
+    "word_perplexity,none": 186.87451036608812,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.5852724265060814,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.3703163144514905,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_mc4": {
+    "alias": "mC4",
+    "word_perplexity,none": 255.8682380026149,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.358282012959312,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.2377362519775512,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_ptb": {
+    "alias": "PTB",
+    "word_perplexity,none": 218.67997168879714,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.565108925994142,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.3590200904151535,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_redpajama": {
+    "alias": "RedPajama",
+    "word_perplexity,none": 176.67114884440417,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.0510084158124107,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.0363334115768679,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_twitterAAE_HELM_fixed": {
+    "alias": "Twitter AAE",
+    "word_perplexity,none": 29029.146154199476,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 6.397390473858363,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 2.677483542901845,
+    "bits_per_byte_stderr,none": "N/A"
+  },
+  "paloma_wikitext_103": {
+    "alias": "Wikitext-103",
+    "word_perplexity,none": 80.16725127407463,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 2.269045861957972,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 1.1820857690590232,
+    "bits_per_byte_stderr,none": "N/A"
+  }
+}
