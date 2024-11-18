@@ -16,6 +16,8 @@
 # GROWN_MODEL="models/"$MODEL_NAME
 # TRAINED_MODEL="models/"$MODEL_NAME"-"$EXP_NAME
 
+echo "Evaluating "$TRAINED_MODEL
+
 python src/eval_llm.py \
     --base_model_path "models-xinyue/pythia-70m-step141000-4b-relora-new" \
     --tokenizer_path "EleutherAI/pythia-410m" \

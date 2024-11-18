@@ -58,6 +58,10 @@ def parse_args():
     parser.add_argument('--checkpoint_dir', type=str, default=None,
                         help='Directory to save the checkpoints')
     
+    # wandb
+    parser.add_argument('--wandb_entity', type=str, default='vibhamasti',
+                        help='Entity for wandb logging')
+
     args = parser.parse_args()
     return args
 
@@ -126,6 +130,34 @@ def main():
         num_workers=1,
         pin_memory=True
     )
+
+    total_batches = len(dataloader)
+    num_gpus = accelerator.num_processes
+    steps_per_gpu = total_batches // num_gpus
+
+    # wandb
+    if accelerator.is_main_process:
+        print(f"\nTraining configuration:")
+
+        print(f"Total batches: {total_batches}")
+        print(f"Number of GPUs: {num_gpus}")
+        print(f"Steps per GPU: {steps_per_gpu}")
+        print(f"Total steps: {steps_per_gpu * num_gpus}")
+
+
+        wandb.init(
+            entity=args.wandb_entity,
+            name=f"lazy-pretraining-full-{args.output_dir.split('/')[-1]}",
+            project="lazy-pretraining-full",
+            config={
+                "model": args.grown_model,
+                "batch_size": args.batch_size,
+                "lr": args.lr,
+                "num_tokens": args.num_tokens,
+                "chunk_size": args.chunk_size,
+                "total_steps_per_gpu": steps_per_gpu,
+            }
+        )
 
     # Optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)

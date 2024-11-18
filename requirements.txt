@@ -8,3 +8,12 @@ accelerate
 wandb
 datasets
 bitsandbytes
+tokenizers
+loguru
+nvitop
+matplotlib
+pybind11
+scipy
+evaluate
+packaging
+ninja
