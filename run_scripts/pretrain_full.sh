@@ -1,11 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=6b_full-1e-5-pythia-70m-step141000-to-pythia-410m
 #SBATCH --mem=32G
-#SBATCH --gres=gpu:A100_40GB:4
+#SBATCH --gres=gpu:A6000:8
 #SBATCH --output=.slurm_logs/6b_full-1e-5-pythia-70m-step141000-to-pythia-410m.out
 #SBATCH --time=02-00:00
 #SBATCH --mail-type=ALL
 #SBATCH --exclude=shire-1-6,shire-1-10,babel-1-27
+#SBATCH -p preempt
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
 
 
@@ -18,18 +19,18 @@ GROWN_MODEL="models/"$MODEL_NAME
 TRAINED_MODEL="models/"$MODEL_NAME"-"$EXP_NAME
 
 # Grow model if grown model does not exist yet
-if [ ! -d $GROWN_MODEL ]; then
-    echo "Growing model..."
-    python src/grow/grow.py \
-        --small_model "pythia-70m" \
-        --large_depth 24 \
-        --large_width 1024 \
-        --depth_growth "alternate" \
-        --output_dir $GROWN_MODEL \
-        --checkpoint_step $STEP
-fi
+# if [ ! -d $GROWN_MODEL ]; then
+#     echo "Growing model..."
+#     python src/grow/grow.py \
+#         --small_model "pythia-70m" \
+#         --large_depth 24 \
+#         --large_width 1024 \
+#         --depth_growth "alternate" \
+#         --output_dir $GROWN_MODEL \
+#         --checkpoint_step $STEP
+# fi
 
-echo "Grown model path: "$GROWN_MODEL
+# echo "Grown model path: "$GROWN_MODEL
 
 echo "Starting full model pretraining..."
 # Pretrain full model
@@ -50,14 +51,14 @@ accelerate launch src/pretrain/pretrain_full.py \
 
 echo "Finished pretraining full model. Model saved in "$TRAINED_MODEL
 
-echo "Plotting losses..."
-# # Plot losses
-python src/visualize/plot_losses.py \
-    --log ".slurm_logs/"$EXP_NAME"-"$MODEL_NAME".out" \
-    --plot_title "Pretraining loss for "$EXP_NAME"-"$MODEL_NAME \
-    --output "plots/"$EXP_NAME"-"$MODEL_NAME".png" \
+# echo "Plotting losses..."
+# # # Plot losses
+# python src/visualize/plot_losses.py \
+#     --log ".slurm_logs/"$EXP_NAME"-"$MODEL_NAME".out" \
+#     --plot_title "Pretraining loss for "$EXP_NAME"-"$MODEL_NAME \
+#     --output "plots/"$EXP_NAME"-"$MODEL_NAME".png" \
 
-echo "Finished plotting losses. Plots saved in plots/"$EXP_NAME"-"$MODEL_NAME".png"
+# echo "Finished plotting losses. Plots saved in plots/"$EXP_NAME"-"$MODEL_NAME".png"
 
 echo "Evaluating full model..."
 

@@ -1,20 +1,22 @@
 #!/bin/bash
-#SBATCH --job-name=eval_6b_full-1e-5-pythia-70m-step141000-to-pythia-410m
+#SBATCH --job-name=eval_2b_relora-1e-5-pythia-70m-step121000-to-pythia-410m
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:A6000:2
-#SBATCH --output=.slurm_logs/eval_6b_full-1e-5-pythia-70m-step141000-to-pythia-410m.out
+#SBATCH --output=.slurm_logs/eval_2b_relora-1e-5-pythia-70m-step142000-to-pythia-410m.out
 #SBATCH --time=01-00:00
 #SBATCH --exclude=shire-1-6,shire-1-10,babel-1-27,babel-1-31,babel-0-37
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
 
 # Define variables
-EXP_NAME="6b_full-1e-5"
-STEP="step140000"
+EXP_NAME="2b_relora-1e-5"
+STEP="step142000"
 MODEL_NAME="pythia-70m-"$STEP"-to-pythia-410m"
 
 GROWN_MODEL="models/"$MODEL_NAME
 TRAINED_MODEL="models/"$MODEL_NAME"-"$EXP_NAME
+
+echo "Evaluating "$TRAINED_MODEL
 
 python src/eval_llm.py \
     --base_model_path $TRAINED_MODEL \
