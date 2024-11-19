@@ -10,9 +10,16 @@ import wandb
 from tqdm import tqdm
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import Dataset, DataLoader
+import sys
 
 # Relative imports
 from utils import CustomBinFileDataset, seed_all, train
+
+
+def count_parameters(model):
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    return total_params, trainable_params
 
 
 def parse_args():
@@ -94,6 +101,15 @@ def main():
     model = get_peft_model(model, config)
     model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
 
+    total_params, trainable_params = count_parameters(model)
+    print(f"Total trainable parameters: {trainable_params}")
+    print(f"Train ratio: {trainable_params / total_params:.4f}")
+
+    for name, param in model.named_parameters():
+        print(f"{name}: requires_grad = {param.requires_grad}, shape = {param.shape}")
+
+    sys.exit()
+
     # Load dataset
     if args.use_on_the_fly:
         dataset = CustomBinFileDataset(
@@ -124,7 +140,10 @@ def main():
     )
 
     # Optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(
+        [p for n, p in model.named_parameters() if p.requires_grad],
+        lr=args.lr
+    )
 
     # Prepare for accelerator
     model, optimizer, dataloader = accelerator.prepare(model, optimizer, dataloader)
