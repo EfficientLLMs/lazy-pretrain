@@ -214,7 +214,10 @@ def main():
     # sys.exit()
 
     # Optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(
+        [p for n, p in model.named_parameters() if p.requires_grad],
+        lr=args.lr
+    )
 
     # Scheduler
     scheduler = get_scheculer(
