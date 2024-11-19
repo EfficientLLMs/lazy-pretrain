@@ -127,7 +127,7 @@ def main():
 
     # This should be specified based on the total number of tokens
     # For 1B, I use 5 restarts
-    num_restarts = 5
+    num_restarts = args.num_restarts
     desired_cycle_length = steps_per_gpu // num_restarts
     cycle_length = desired_cycle_length * num_gpus
     
@@ -211,7 +211,7 @@ def main():
     for name, param in model.named_parameters():
         print(f"{name}: requires_grad = {param.requires_grad}, shape = {param.shape}")
 
-    sys.exit()
+    # sys.exit()
 
     # Optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
