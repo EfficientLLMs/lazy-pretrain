@@ -5,7 +5,7 @@
 #SBATCH --exclude=babel-0-37,babel-0-31
 #SBATCH --partition=preempt
 #SBATCH --output=.slurm_logs/test-preempt.out
-#SBATCH --time=00-00:5
+#SBATCH --time=00-00:10:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=xinyuel4@andrew.cmu.edu
 
@@ -29,3 +29,4 @@ accelerate launch src/pretrain/pretrain_relora_preempt.py \
     --min_lr_ratio 0.1 \
     --wandb_entity "irisiris" \
     --num_restarts 20 \
+    --checkpoint_freq 10

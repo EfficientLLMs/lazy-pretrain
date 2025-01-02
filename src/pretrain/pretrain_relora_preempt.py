@@ -11,83 +11,99 @@ from tqdm import tqdm
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import Dataset, DataLoader
 import sys
+import logging
+from pathlib import Path
+import json
 import os
-import signal
-import threading
-from subprocess import call
 
 # Relative imports
 from utils import CustomBinFileDataset, seed_all, train
 from relora import ReLoRaModel
-from relora_utils import get_scheculer, train_relora, optimizer_reset
+from relora_utils import get_scheculer, train_relora_preempt
 
 
-# Add RequeueModelSaver for preemption handling
-# ^ This class stores training state, and use a lock to ensure that only one process saves the model
-class RequeueModelSaver:
-    def __init__(self):
-        self.model = None
-        self.save_lock = threading.Lock()
-        self.has_saved = False
-        self.current_step = 0
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    def set_model(self, model, accelerator, optimizer, scheduler, args):
-        self.model = model
-        self.accelerator = accelerator
-        self.optimizer = optimizer
-        self.scheduler = scheduler
-        self.args = args
 
-    def update_step(self, step):
-        self.current_step = step
+# Data sampler
+class ResumableSampler(torch.utils.data.Sampler):
+    """Sampler that supports resuming from a specific index"""
+    def __init__(self, data_source, start_idx=0):
+        self.data_source = data_source
+        self.start_idx = start_idx
+        
+    def __iter__(self):
+        return iter(range(self.start_idx, len(self.data_source)))
+        
+    def __len__(self):
+        return len(self.data_source) - self.start_idx
+        
+    def state_dict(self):
+        return {'start_idx': self.start_idx}
+        
+    def load_state_dict(self, state_dict):
+        self.start_idx = state_dict['start_idx']
 
-    def __call__(self):
-        with self.save_lock:
-            if self.has_saved:
-                return
-            self.has_saved = True
+
+# Manage checkpoint
+class CheckpointManager:
+    """Simple checkpoint manager to handle saving and loading of checkpoints"""
+    def __init__(self, output_dir, keep_last_n=2):
+        self.output_dir = Path(output_dir)
+        self.keep_last_n = keep_last_n
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+    def save_checkpoint(self, state, step):
+        checkpoint_path = self.output_dir / f"checkpoint_{step}"
+        tmp_checkpoint_path = checkpoint_path.with_suffix('.tmp')
+        
+        # First save to a temporary file
+        logger.info(f"Saving checkpoint to {checkpoint_path}")
+        torch.save(state, tmp_checkpoint_path)
+        
+        # Atomic rename
+        tmp_checkpoint_path.rename(checkpoint_path)
+        
+        # Save latest checkpoint info
+        with open(self.output_dir / "latest_checkpoint.json", 'w') as f:
+            json.dump({
+                'step': step,
+                'checkpoint_path': str(checkpoint_path)
+            }, f)
             
-            # Custom save function
-            if self.accelerator.is_main_process:
-                checkpoint_path = os.path.join(self.args.output_dir, f"checkpoint-{self.current_step}")
-                os.makedirs(checkpoint_path, exist_ok=True)
-                
-                # ^ This saves the model
-                unwrapped_model = self.accelerator.unwrap_model(self.model)
-                unwrapped_model.save_pretrained(
-                    checkpoint_path,
-                )
-                
-                # ^ This saves the training state
-                self.accelerator.save({
-                    'step': self.current_step,
-                    'optimizer': self.accelerator.get_state_dict(self.optimizer),
-                    'scheduler': self.scheduler.state_dict(),
-                }, os.path.join(checkpoint_path, "training_state.pt"))
-                
-                print(f"Saved checkpoint at step {self.current_step}")
-
-
-# Initialize global model saver and save flag
-save_model = RequeueModelSaver()
-save_after_batch = False
-
-
-# ^ Set a flag when a preemption signal is received
-def slurm_requeue_handler(signum, frame):
-    global save_after_batch
-    print(f"Received signal {signum}, will save after current batch completes...")
-    save_after_batch = True
-
-
-def find_latest_checkpoint(output_dir):
-    if not os.path.exists(output_dir):
-        return None
-    checkpoints = [d for d in os.listdir(output_dir) if d.startswith("checkpoint-")]
-    if not checkpoints:
-        return None
-    latest = max(checkpoints, key=lambda x: int(x.split("-")[1]))
-    return os.path.join(output_dir, latest)
+        # Clean up old checkpoints
+        self._cleanup_old_checkpoints()
+    
+    def load_latest_checkpoint(self):
+        latest_file = self.output_dir / "latest_checkpoint.json"
+        if not latest_file.exists():
+            logger.info("No checkpoint found - starting from beginning")
+            return None
+            
+        with open(latest_file, 'r') as f:
+            latest_info = json.load(f)
+            
+        checkpoint_path = Path(latest_info['checkpoint_path'])
+        if not checkpoint_path.exists():
+            logger.warning(f"Checkpoint file {checkpoint_path} not found")
+            return None
+            
+        logger.info(f"Loading checkpoint from {checkpoint_path}")
+        return torch.load(checkpoint_path)
+    
+    def _cleanup_old_checkpoints(self):
+        """Remove all but the latest n checkpoints"""
+        checkpoints = sorted(
+            [f for f in self.output_dir.glob("checkpoint_*") if not f.name.endswith('.tmp')],
+            key=lambda x: int(x.name.split('_')[1])
+        )
+        
+        if len(checkpoints) > self.keep_last_n:
+            for checkpoint in checkpoints[:-self.keep_last_n]:
+                logger.info(f"Removing old checkpoint: {checkpoint}")
+                checkpoint.unlink()
 
 
 def count_parameters(model):
@@ -155,164 +171,21 @@ def parse_args():
     # wandb
     parser.add_argument('--wandb_entity', type=str, default='irisiris',
                         help='Entity for wandb logging')
+
+    # checkpoint
+    parser.add_argument('--checkpoint_freq', type=int, default=100,
+                      help='How often to save checkpoints (in steps)')
+
     args = parser.parse_args()
     return args
 
+def cleanup_memory():
+    """Clean up GPU memory"""
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.reset_max_memory_allocated()
+        torch.cuda.reset_peak_memory_stats()
 
-def train_relora_preempt(model, accelerator, dataloader, optimizer, scheduler, args, output_dir):
-    """
-    Training loop for ReLoRA with preemption handling.
-    """
-    global save_after_batch
-
-    # Set up SLURM handlers if running on SLURM
-    if os.environ.get("SLURM_JOB_ID"):
-        print("Running in SLURM, setting up requeue handler...")
-        signal.signal(signal.SIGUSR1, slurm_requeue_handler)
-        signal.signal(signal.SIGTERM, slurm_requeue_handler)
-
-    # Initialize model saver
-    save_model.set_model(model, accelerator, optimizer, scheduler, args)
-
-    model.train()
-
-    # Debug prints from all processes
-    print(f"\nProcess {accelerator.process_index} debug info:")
-    print(f"  Device: {accelerator.device}")
-    print(f"  Is main process: {accelerator.is_main_process}")
-    print(f"  Model device: {next(model.parameters()).device}")
-    print(f"  Is model training: {model.training}")
-
-    # Synchronize before starting training loop
-    print(f"\nProcess {accelerator.process_index} waiting for synchronization...")
-    accelerator.wait_for_everyone()
-    print(f"Process {accelerator.process_index} synchronized")
-
-    if accelerator.is_main_process:
-        print("\nStarting training loop...")
-        progress_bar = tqdm(total=len(dataloader), desc="Training")
-    
-    # ^ The following is the same until we receive a preemption signal
-    for step, batch in enumerate(dataloader):
-        try:
-            # ReLoRA reset
-            if step > 0 and step % args.relora_steps == 0:
-                if accelerator.is_main_process:
-                    print(f"\nPerforming LoRA reset at step {step}")
-                
-                # Synchronize before model manipulation
-                accelerator.wait_for_everyone()
-                
-                # 1. Get unwrapped model and perform reset
-                unwrapped_model = accelerator.unwrap_model(model)
-                unwrapped_model.merge_and_reinit()
-                
-                # 2. Reset optimizer state for LoRA parameters
-                lora_params = [p for n, p in unwrapped_model.named_parameters() if "lora_" in n]
-                optimizer_reset(
-                    optimizer,
-                    reset_params=lora_params,
-                    optimizer_state_keys=["exp_avg", "exp_avg_sq"],
-                    reset_optimizer_on_relora=True,
-                    optimizer_random_pruning=0.0,
-                    optimizer_magnitude_pruning=0.0,
-                )
-                
-                # Synchronize after model manipulation
-                accelerator.wait_for_everyone()
-                
-                if accelerator.is_main_process:
-                    wandb.log({"relora_reset": step}, step=step)
-                    print("LoRA reset complete")
-
-            # Regular training step
-            optimizer.zero_grad()
-            outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
-            loss = outputs.loss
-            
-            accelerator.backward(loss)
-            clip_grad_norm_(model.parameters(), max_norm=1.0)
-            optimizer.step()
-            scheduler.step()
-
-            # Get loss values
-            loss_value = accelerator.gather(loss).mean().item()
-            ppl_value = torch.exp(torch.tensor(loss_value)).item()
-            current_lr = scheduler.get_last_lr()[0]
-
-            # ^ Update save_model step counter
-            if accelerator.is_main_process:
-                print(f"Update step={step} for save_model")
-            save_model.update_step(step)
-
-            # Logging
-            if accelerator.is_main_process:
-                wandb.log({
-                    "loss": loss_value,
-                    "ppl": ppl_value,
-                    "learning_rate": current_lr,
-                    "step": step,
-                }, step=step)
-                
-                progress_bar.update(1)
-                if step % 100 == 0:
-                    print(f"Step {step}, loss: {loss_value:.4f}, ppl: {ppl_value:.2f}, lr: {current_lr:.2e}")
-
-            # Check if we need to save and requeue
-            # ^ This is True if we received a preemption signal
-            if save_after_batch:
-                if accelerator.is_main_process:
-                    print("\nReceived preemption signal, saving checkpoint and requeuing...")
-                
-                # Synchronize before saving
-                accelerator.wait_for_everyone()
-                
-                # Save checkpoint
-                save_model()
-                
-                # ^ After each batch processing, we first check if we received a preemption signal
-                # ^ If we did, we save the model and manually requeue the job
-                if os.environ.get("SLURM_JOB_ID"):
-                    job_id = os.environ["SLURM_JOB_ID"]
-                    if accelerator.is_main_process:
-                        print(f"Requeuing job {job_id}")
-                        try:
-                            call(["scontrol", "requeue", job_id])
-                        except FileNotFoundError:
-                            call(f"scontrol requeue {job_id}", shell=True)
-                
-                # # Close progress bar and wandb if main process
-                # if accelerator.is_main_process:
-                #     progress_bar.close()
-                #     wandb.finish()
-                
-                return None  # Exit training loop
-
-            if args.debug and step > 5:
-                break
-
-        except Exception as e:
-            print(f"Error during training step {step}: {str(e)}")
-            raise e
-
-    # Synchronize before finishing
-    accelerator.wait_for_everyone()
-
-    if accelerator.is_main_process:
-        print(f"Training finished.")
-        progress_bar.close()
-        wandb.finish()
-
-        # Save model
-        if not args.debug:
-            unwrapped_model = accelerator.unwrap_model(model)
-            unwrapped_model.save_pretrained(
-                output_dir,
-                is_main_process=accelerator.is_main_process,
-                save_function=accelerator.save,
-            )
-
-    return None  # Return values aren't needed in distributed setting
 
 
 def main():
@@ -325,6 +198,10 @@ def main():
     accelerator = Accelerator()
     device = accelerator.device
     print(f"device: {device}")
+
+    # Initialize checkpoint manager and try to load checkpoint
+    checkpoint_manager = CheckpointManager(args.output_dir, keep_last_n=2)
+    checkpoint = checkpoint_manager.load_latest_checkpoint()
 
     # Load dataset
     if args.use_on_the_fly:
@@ -339,10 +216,12 @@ def main():
         dataset = torch.load(args.dataset)
 
     # Create dataloader
+    sampler = ResumableSampler(dataset)
     dataloader = DataLoader(
         dataset,
         batch_size=args.batch_size, 
-        shuffle=False,  # keep the same order
+        # shuffle=False,  # keep the same order
+        sampler=sampler,
         collate_fn=default_data_collator,
         num_workers=1,
         pin_memory=True
@@ -357,7 +236,7 @@ def main():
     num_restarts = args.num_restarts
     desired_cycle_length = steps_per_gpu // num_restarts
     cycle_length = desired_cycle_length * num_gpus
-
+    
     desired_warmup_per_gpu = desired_cycle_length // num_restarts
     warmup_steps = desired_warmup_per_gpu * num_gpus
 
@@ -367,72 +246,8 @@ def main():
     args.restart_warmup_steps = warmup_steps // 2
     args.cycle_length = cycle_length
 
-    # wandb
-    if accelerator.is_main_process:
-        print(f"\nTraining configuration:")
-        print(f"Total batches: {total_batches}")
-        print(f"Number of GPUs: {num_gpus}")
-        print(f"Steps per GPU: {steps_per_gpu}")
-        print(f"Total steps: {steps_per_gpu * num_gpus}")
-        print(f"Number of restarts: {num_restarts}")
-        print(f"Cycle length: {cycle_length}")
-        print(f"Warmup steps: {warmup_steps}")
-
-        wandb_run = wandb.init(
-            entity=args.wandb_entity,
-            project="relora-pretraining-preempt",
-            config={
-                "model": args.grown_model,
-                "rank": args.rank,
-                "lora_alpha": args.lora_alpha,
-                "batch_size": args.batch_size,
-                "lr": args.lr,
-                "scheduler": args.scheduler,
-                "relora_steps": cycle_length,
-                "cycle_length": cycle_length,
-                "warmup_steps": warmup_steps,
-                "min_lr_ratio": args.min_lr_ratio,
-                "total_steps_per_gpu": steps_per_gpu,
-                "num_restarts": num_restarts,
-            },
-            # ^ Allow resuming training
-            id=os.environ.get("WANDB_RUN_ID", None),
-            resume="allow",
-        )
-        # save the id
-        os.environ["WANDB_RUN_ID"] = wandb_run.id
-
-
-    # Check for latest checkpoint
-    latest_checkpoint = find_latest_checkpoint(args.output_dir)
-    starting_step = 0
-
-    if latest_checkpoint:
-        print(f"Resuming from checkpoint: {latest_checkpoint}")
-        model = AutoModelForCausalLM.from_pretrained(latest_checkpoint, device_map=device)
-        
-        training_state = torch.load(
-            os.path.join(latest_checkpoint, "training_state.pt"),
-            map_location='cpu'
-        )
-        starting_step = training_state['step']
-
-        # Skip processed batches in dataloader
-        dataloader = DataLoader(
-            torch.utils.data.Subset(
-                dataloader.dataset,
-                range(starting_step * args.batch_size, len(dataloader.dataset))
-            ),
-            batch_size=args.batch_size,
-            shuffle=False,
-            collate_fn=default_data_collator,
-            num_workers=1,
-            pin_memory=True
-        )
-    else:
-        print("Starting fresh training")
-        model = AutoModelForCausalLM.from_pretrained(args.grown_model, device_map=device)
-
+    # Load model
+    model = AutoModelForCausalLM.from_pretrained(args.grown_model, device_map=device)
     model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
 
     # Use ReLoRA
@@ -472,6 +287,8 @@ def main():
     for name, param in model.named_parameters():
         print(f"{name}: requires_grad = {param.requires_grad}, shape = {param.shape}")
 
+    # sys.exit()
+
     # Optimizer
     optimizer = torch.optim.AdamW(
         [p for n, p in model.named_parameters() if p.requires_grad],
@@ -479,40 +296,99 @@ def main():
     )
 
     # Scheduler
-    scheduler = get_scheculer(
-        optimizer,
-        scheduler_type=args.scheduler,
-        num_training_steps=steps_per_gpu * num_gpus,
-        warmup_steps=warmup_steps,
-        min_lr_ratio=args.min_lr_ratio,
-        cycle_length=cycle_length,
-        restart_warmup_steps=warmup_steps // 2,
-    )
+    if checkpoint is not None:
+        start_step = checkpoint['global_step'] + 1
+        effective_step = start_step - checkpoint['last_relora_reset']
+        
+        scheduler = get_scheculer(
+            optimizer,
+            scheduler_type=args.scheduler,
+            num_training_steps=steps_per_gpu * num_gpus,
+            warmup_steps=warmup_steps,
+            min_lr_ratio=args.min_lr_ratio,
+            cycle_length=cycle_length,
+            restart_warmup_steps=warmup_steps // 2,
+            adjust_step=effective_step
+        )
+    else:
+        scheduler = get_scheculer(
+            optimizer,
+            scheduler_type=args.scheduler,
+            num_training_steps=steps_per_gpu * num_gpus,
+            warmup_steps=warmup_steps,
+            min_lr_ratio=args.min_lr_ratio,
+            cycle_length=cycle_length,
+            restart_warmup_steps=warmup_steps // 2,
+        )
 
-    # Load optimizer and scheduler states if resuming
-    if latest_checkpoint and training_state:
-        optimizer.load_state_dict(training_state['optimizer'])
-        if training_state.get('scheduler'):
-            scheduler.load_state_dict(training_state['scheduler'])
+    # Load checkpoint
+    if checkpoint is not None:
+        logger.info("Loading checkpoint states...")
+        cleanup_memory()
+
+        unwrapped_model = accelerator.unwrap_model(model)
+        unwrapped_model.load_state_dict(checkpoint['model_state_dict'])
+
+        optimizer = torch.optim.AdamW(
+            [p for n, p in unwrapped_model.named_parameters() if p.requires_grad],
+            lr=args.lr
+        )
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        if checkpoint['sampler_state']:
+            sampler.load_state_dict(checkpoint['sampler_state'])
+
+        cleanup_memory()
+        logger.info(f"Resuming from step {start_step}")
+    else:
+        start_step = 0
+        logger.info("Starting training from beginning")
 
     # Prepare for accelerator
     print("\nPreparing for accelerator...")
+    model = model.to(device)
+    cleanup_memory()
+    
     model, optimizer, dataloader, scheduler = accelerator.prepare(
         model, optimizer, dataloader, scheduler
     )
 
+    # wandb
+    if accelerator.is_main_process:
+        print(f"\nTraining configuration:")
+        print(f"Total batches: {total_batches}")
+        print(f"Number of GPUs: {num_gpus}")
+        print(f"Steps per GPU: {steps_per_gpu}")
+        print(f"Total steps: {steps_per_gpu * num_gpus}")
+        print(f"Number of restarts: {num_restarts}")
+        print(f"Cycle length: {cycle_length}")
+        print(f"Warmup steps: {warmup_steps}")
+
+        wandb.init(
+            entity=args.wandb_entity,
+            project="relora-pretraining-preempt",
+            config={
+                "model": args.grown_model,
+                "rank": args.rank,
+                "lora_alpha": args.lora_alpha,
+                "batch_size": args.batch_size,
+                "lr": args.lr,
+                "scheduler": args.scheduler,
+                "relora_steps": cycle_length,
+                "cycle_length": cycle_length,
+                "warmup_steps": warmup_steps,
+                "min_lr_ratio": args.min_lr_ratio,
+                "total_steps_per_gpu": steps_per_gpu,
+                "num_restarts": num_restarts,
+                "resumed_from_step": start_step if checkpoint else 0
+            }
+        )
+
     # Train model
-    train_relora_preempt(
-        model, 
-        accelerator, 
-        dataloader, 
-        optimizer, 
-        scheduler, 
-        args,
-        args.output_dir
-    )
+    train_relora_preempt(model, accelerator, dataloader, optimizer, scheduler, args, 
+                 checkpoint_manager=checkpoint_manager, start_checkpoint=checkpoint, sampler=sampler)
 
-
+    
 
 if __name__ == '__main__':
     main()

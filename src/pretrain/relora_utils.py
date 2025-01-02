@@ -525,3 +525,152 @@ def train_relora(model, accelerator, dataloader, optimizer, scheduler, args, out
             )
 
     return None  # Return values aren't needed in distributed setting
+
+
+def cleanup_memory():
+    """Clean up GPU memory"""
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.reset_max_memory_allocated()
+        torch.cuda.reset_peak_memory_stats()
+
+
+def train_relora_preempt(model, accelerator, dataloader, optimizer, scheduler, args, 
+                 checkpoint_manager=None, start_checkpoint=None, sampler=None):
+    """
+    Training loop for ReLoRA.
+    """
+
+    cleanup_memory()
+    model.train()
+
+    if start_checkpoint is not None:
+        start_step = start_checkpoint['global_step'] + 1
+        last_relora_reset = start_checkpoint['last_relora_reset']
+
+        optimizer.zero_grad()
+        cleanup_memory()
+    else:
+        start_step = 0
+        last_relora_reset = 0
+    
+    # Debug prints from all processes
+    print(f"\nProcess {accelerator.process_index} debug info:")
+    print(f"  Device: {accelerator.device}")
+    print(f"  Is main process: {accelerator.is_main_process}")
+    print(f"  Model device: {next(model.parameters()).device}")
+    print(f"  Is model training: {model.training}")
+    print(f"  Starting/Resuming from step: {start_step}")
+
+    # Synchronize before starting training loop
+    print(f"\nProcess {accelerator.process_index} waiting for synchronization...")
+    accelerator.wait_for_everyone()
+    print(f"Process {accelerator.process_index} synchronized")
+
+    if accelerator.is_main_process:
+        print("\nStarting training loop...")
+        progress_bar = tqdm(total=len(dataloader), desc="Training", initial=start_step)
+    
+    try:
+        for step, batch in enumerate(dataloader, start=start_step):
+            # ReLoRA reset logic
+            next_reset_step = last_relora_reset + args.relora_steps
+            
+            if step >= next_reset_step and step % args.relora_steps == 0:
+                if accelerator.is_main_process:
+                    print(f"\nPerforming LoRA reset at step {step}")
+                
+                accelerator.wait_for_everyone()
+                unwrapped_model = accelerator.unwrap_model(model)
+                unwrapped_model.merge_and_reinit()
+                
+                lora_params = [p for n, p in unwrapped_model.named_parameters() if "lora_" in n]
+                optimizer_reset(
+                    optimizer,
+                    reset_params=lora_params,
+                    optimizer_state_keys=["exp_avg", "exp_avg_sq"],
+                    reset_optimizer_on_relora=True,
+                    optimizer_random_pruning=0.0,
+                    optimizer_magnitude_pruning=0.0,
+                )
+                
+                accelerator.wait_for_everyone()
+                
+                if accelerator.is_main_process:
+                    wandb.log({"relora_reset": step}, step=step)
+                    print("LoRA reset complete")
+                
+                last_relora_reset = step
+
+            # Regular training step
+            optimizer.zero_grad()
+            outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
+            loss = outputs.loss
+            
+            accelerator.backward(loss)
+            clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            scheduler.step()
+
+            # Get loss values and log
+            loss_value = accelerator.gather(loss).mean().item()
+            ppl_value = torch.exp(torch.tensor(loss_value)).item()
+            current_lr = scheduler.get_last_lr()[0]
+
+            if accelerator.is_main_process:
+                wandb.log({
+                    "loss": loss_value,
+                    "ppl": ppl_value,
+                    "learning_rate": current_lr,
+                    "step": step,
+                }, step=step)
+                
+                progress_bar.update(1)
+                if step % 100 == 0:
+                    print(f"Step {step}, loss: {loss_value:.4f}, ppl: {ppl_value:.2f}, lr: {current_lr:.2e}")
+            
+            # Save checkpoint
+            if accelerator.is_main_process and (step > 0) and (step % args.checkpoint_freq == 0):
+                unwrapped_model = accelerator.unwrap_model(model)
+                checkpoint_state = {
+                    'global_step': step,
+                    'model_state_dict': unwrapped_model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
+                    'sampler_state': sampler.state_dict() if sampler else None,
+                    'loss': loss_value,
+                    'last_relora_reset': last_relora_reset,
+                    'cycles_completed': step // args.relora_steps,
+                }
+                checkpoint_manager.save_checkpoint(checkpoint_state, step)
+
+    except Exception as e:
+        print(f"Error during training step {step}: {str(e)}")
+        if accelerator.is_main_process and checkpoint_manager is not None:
+            unwrapped_model = accelerator.unwrap_model(model)
+            checkpoint_state = {
+                'global_step': step,
+                'model_state_dict': unwrapped_model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'sampler_state': sampler.state_dict() if sampler else None,
+                'loss': loss_value,
+                'last_relora_reset': last_relora_reset,
+                'cycles_completed': step // args.relora_steps,
+            }
+            checkpoint_manager.save_checkpoint(checkpoint_state, step)
+        raise e
+
+    accelerator.wait_for_everyone()
+    if accelerator.is_main_process:
+        print(f"Training finished.")
+        progress_bar.close()
+        wandb.finish()
+
+        if not args.debug:
+            unwrapped_model = accelerator.unwrap_model(model)
+            unwrapped_model.save_pretrained(
+                args.output_dir,
+                is_main_process=accelerator.is_main_process,
+                save_function=accelerator.save,
+            )
