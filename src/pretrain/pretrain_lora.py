@@ -108,7 +108,7 @@ def main():
     for name, param in model.named_parameters():
         print(f"{name}: requires_grad = {param.requires_grad}, shape = {param.shape}")
 
-    sys.exit()
+    # sys.exit()
 
     # Load dataset
     if args.use_on_the_fly:
