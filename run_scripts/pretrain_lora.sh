@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=pythia-70m-step142000-1b-lora-alpha256-allmod-1e-5
 #SBATCH --mem=32G
-#SBATCH --gres=gpu:A6000:8
+#SBATCH --gres=gpu:A6000:4
 #SBATCH --partition=general
 #SBATCH --output=.slurm_logs/pythia-70m-step142000-1b-lora-alpha256-allmod-1e-5.out
 #SBATCH --time=01-00:00

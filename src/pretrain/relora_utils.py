@@ -2,6 +2,8 @@ import os
 import json
 import math
 from functools import partial
+import subprocess
+import gc
 
 import torch
 import torch.distributed as dist
@@ -528,12 +530,23 @@ def train_relora(model, accelerator, dataloader, optimizer, scheduler, args, out
 
 
 def cleanup_memory():
-    """Clean up GPU memory"""
+    """Clean up GPU memory and print memory usage before and after cleanup"""
     if torch.cuda.is_available():
+        # Run nvidia-smi to show memory usage before cleanup (filtering for memory usage)
+        print("Before cleanup:")
+        subprocess.run(['nvidia-smi', '--query-gpu=memory.free,memory.used,memory.total', '--format=csv'])
+
+        # Empty cache and reset memory stats
         torch.cuda.empty_cache()
         torch.cuda.reset_max_memory_allocated()
         torch.cuda.reset_peak_memory_stats()
 
+        # Run nvidia-smi again to show memory usage after cleanup
+        print("\nAfter cleanup:")
+        subprocess.run(['nvidia-smi', '--query-gpu=memory.free,memory.used,memory.total', '--format=csv'])
+
+    # Collect garbage to free up memory
+    gc.collect()
 
 def train_relora_preempt(model, accelerator, dataloader, optimizer, scheduler, args, 
                  checkpoint_manager=None, start_checkpoint=None, sampler=None):
@@ -643,6 +656,10 @@ def train_relora_preempt(model, accelerator, dataloader, optimizer, scheduler, a
                     'cycles_completed': step // args.relora_steps,
                 }
                 checkpoint_manager.save_checkpoint(checkpoint_state, step)
+
+            # Free up memory
+            del loss, outputs, batch
+            cleanup_memory()
 
     except Exception as e:
         print(f"Error during training step {step}: {str(e)}")

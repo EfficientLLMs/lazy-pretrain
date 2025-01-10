@@ -1,12 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=eval_pythia-70m-step141000-4b-relora-new
+#SBATCH --job-name=eval_pythia-410m-step10000
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:A6000:2
-#SBATCH --output=.slurm_logs/eval_pythia-70m-step141000-4b-relora-new.out
+#SBATCH --output=.slurm_logs/eval_pythia-410m-step10000-again.out
 #SBATCH --time=01-00:00
-#SBATCH --exclude=babel-1-23,babel-4-37
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=xinyuel4@andrew.cmu.edu
+#SBATCH --mail-user=vmasti@andrew.cmu.edu
 
 # Define variables
 # EXP_NAME="6b_full-1e-5"
@@ -16,14 +15,14 @@
 # GROWN_MODEL="models/"$MODEL_NAME
 # TRAINED_MODEL="models/"$MODEL_NAME"-"$EXP_NAME
 
-echo "Evaluating "$TRAINED_MODEL
+# echo "Evaluating "$TRAINED_MODEL
 
-python src/eval_llm.py \
-    --base_model_path "models-xinyue/pythia-70m-step141000-4b-relora-new" \
-    --tokenizer_path "EleutherAI/pythia-410m" \
-    --eval_results_path "eval/pythia-70m-step141000-4b-relora-new" \
-    --tasks "paloma" "lambada_openai" \
-    --token ".token"
+# python src/eval_llm.py \
+#     --base_model_path "models-xinyue/pythia-70m-step141000-4b-relora-new" \
+#     --tokenizer_path "EleutherAI/pythia-410m" \
+#     --eval_results_path "eval/pythia-70m-step141000-4b-relora-new" \
+#     --tasks "paloma" "lambada_openai" \
+#     --token ".token"
 
 # --lora_path "models/pythia-70m-step140000-to-pythia-410m-lora-alpha256-allmod" \
 # pythia-70m-step142000-to-pythia-410m-full-1b-1e-5
@@ -52,12 +51,14 @@ python src/eval_llm.py \
 #     --eval_results_path "eval/70m_eval_results" \
 #     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
 
-# python src/eval_llm.py \
-#     --base_model_path "EleutherAI/pythia-410m" \
-#     --checkpoint_step "step140000" \
-#     --tokenizer_path "EleutherAI/pythia-410m" \
-#     --eval_results_path "eval/410m_step140000_eval_results" \
-#     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
+python src/eval_llm.py \
+    --base_model_path "EleutherAI/pythia-410m" \
+    --checkpoint_step "step10000" \
+    --tokenizer_path "EleutherAI/pythia-410m" \
+    --eval_results_path "eval/410m_step10000_eval_results" \
+    --tasks "lambada_openai" \
+    --token ".token"
+
 
 # python src/eval_llm.py \
 #     --base_model_path "models-xinyue/pythia-70m-step140000-to-pythia-410m" \

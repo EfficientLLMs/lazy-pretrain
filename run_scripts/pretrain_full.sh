@@ -1,12 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=6b_full-1e-5-pythia-70m-step141000-to-pythia-410m
-#SBATCH --mem=32G
-#SBATCH --gres=gpu:A6000:8
-#SBATCH --output=.slurm_logs/6b_full-1e-5-pythia-70m-step141000-to-pythia-410m.out
+#SBATCH --job-name=6b_full-1e-5-pythia-70m-step140000-to-pythia-410m
+#SBATCH --mem=80G
+#SBATCH --gres=gpu:A100_40GB:8
+#SBATCH --output=.slurm_logs/6b_full-1e-5-pythia-70m-step140000-to-pythia-410m.out
+#SBATCH --partition=general
 #SBATCH --time=02-00:00
 #SBATCH --mail-type=ALL
-#SBATCH --exclude=shire-1-6,shire-1-10,babel-1-27
-#SBATCH -p preempt
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
 
 
@@ -60,7 +59,7 @@ echo "Finished pretraining full model. Model saved in "$TRAINED_MODEL
 
 # echo "Finished plotting losses. Plots saved in plots/"$EXP_NAME"-"$MODEL_NAME".png"
 
-echo "Evaluating full model..."
+echo "Evaluating full "$TRAINED_MODEL" model..."
 
 # Evaluate full model
 python src/eval_llm.py \
