@@ -533,8 +533,8 @@ def cleanup_memory():
     """Clean up GPU memory and print memory usage before and after cleanup"""
     if torch.cuda.is_available():
         # Run nvidia-smi to show memory usage before cleanup (filtering for memory usage)
-        print("Before cleanup:")
-        subprocess.run(['nvidia-smi', '--query-gpu=memory.free,memory.used,memory.total', '--format=csv'])
+        # print("Before cleanup:")
+        # subprocess.run(['nvidia-smi', '--query-gpu=memory.free,memory.used,memory.total', '--format=csv'])
 
         # Empty cache and reset memory stats
         torch.cuda.empty_cache()
@@ -542,8 +542,8 @@ def cleanup_memory():
         torch.cuda.reset_peak_memory_stats()
 
         # Run nvidia-smi again to show memory usage after cleanup
-        print("\nAfter cleanup:")
-        subprocess.run(['nvidia-smi', '--query-gpu=memory.free,memory.used,memory.total', '--format=csv'])
+        # print("\nAfter cleanup:")
+        # subprocess.run(['nvidia-smi', '--query-gpu=memory.free,memory.used,memory.total', '--format=csv'])
 
     # Collect garbage to free up memory
     gc.collect()
@@ -561,6 +561,8 @@ def train_relora_preempt(model, accelerator, dataloader, optimizer, scheduler, a
         start_step = start_checkpoint['global_step'] + 1
         last_relora_reset = start_checkpoint['last_relora_reset']
 
+        print(f"Resuming training from step {start_step}")
+        
         optimizer.zero_grad()
         cleanup_memory()
     else:

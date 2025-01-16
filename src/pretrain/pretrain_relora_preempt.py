@@ -140,8 +140,12 @@ def parse_args():
     parser.add_argument('--lr', type=float, default=1e-4,
                         help='Learning rate for pretraining')
     
-    parser.add_argument('--output_dir', type=str, default='models/pythia-70m-to-pythia-410m-lora',
+    parser.add_argument('--output_dir', type=str, default='models/pythia-70m-to-pythia-410m-relora',
                         help='Directory to save the trained model')
+
+    parser.add_argument('--checkpoint_dir', type=str, default='checkpoints/pythia-70m-to-pythia-410m-relora',
+                        help='Directory to save the trained model')
+    
 
     # on-the-fly data processing
     parser.add_argument('--use_on_the_fly', action='store_true',
@@ -171,6 +175,7 @@ def parse_args():
     # wandb
     parser.add_argument('--wandb_entity', type=str, default='irisiris',
                         help='Entity for wandb logging')
+    parser.add_argument('--wandb_run_name', type=str, default='relora-8b',)
 
     # checkpoint
     parser.add_argument('--checkpoint_freq', type=int, default=100,
@@ -200,7 +205,7 @@ def main():
     print(f"device: {device}")
 
     # Initialize checkpoint manager and try to load checkpoint
-    checkpoint_manager = CheckpointManager(args.output_dir, keep_last_n=2)
+    checkpoint_manager = CheckpointManager(args.checkpoint_dir, keep_last_n=2)
     checkpoint = checkpoint_manager.load_latest_checkpoint()
 
     # Load dataset
@@ -366,6 +371,8 @@ def main():
 
         wandb.init(
             entity=args.wandb_entity,
+            name=args.wandb_run_name,
+            resume="allow",
             project="relora-pretraining-preempt",
             config={
                 "model": args.grown_model,

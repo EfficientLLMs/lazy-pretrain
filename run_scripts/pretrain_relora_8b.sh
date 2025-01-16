@@ -7,8 +7,12 @@
 #SBATCH --time=02-00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
+#SBATCH --exclude=shire-1-6,shire-1-10,babel-1-27,babel-1-23
 
-# export NCCL_P2P_DISABLE=1
+
+# export NCCL_P2P_LEVEL=NVL
+
+export NCCL_P2P_DISABLE=1
 
 
 # Define variables
@@ -18,6 +22,7 @@ MODEL_NAME="pythia-70m-"$STEP"-to-pythia-410m"
 
 GROWN_MODEL="models/"$MODEL_NAME
 TRAINED_MODEL="models/"$MODEL_NAME"-"$EXP_NAME
+CHECKPOINT_DIR="checkpoints/"$MODEL_NAME"-"$EXP_NAME
 
 accelerate launch src/pretrain/pretrain_relora_preempt.py \
     --grown_model $GROWN_MODEL \
@@ -25,9 +30,10 @@ accelerate launch src/pretrain/pretrain_relora_preempt.py \
     --seed 1234 \
     --rank 256 \
     --lora_alpha 256 \
-    --batch_size 32 \
+    --batch_size 16 \
     --lr 1e-5 \
     --output_dir $TRAINED_MODEL \
+    --checkpoint_dir $CHECKPOINT_DIR \
     --use_on_the_fly \
     --first_idx 19 \
     --last_idx 20 \
@@ -37,7 +43,8 @@ accelerate launch src/pretrain/pretrain_relora_preempt.py \
     --min_lr_ratio 0.1 \
     --wandb_entity "vibhamasti" \
     --num_restarts 40 \
-    --checkpoint_freq 10
+    --checkpoint_freq 10 \
+    --wandb_run_name "step139000-8b-relora"
     # --do_extact_lora
 
     # we don't need others; but we need to specify the num_restarts in the main code
