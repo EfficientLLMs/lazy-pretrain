@@ -14,7 +14,7 @@ from torch.distributed.fsdp import (
     MixedPrecision,
 )
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
-
+from utils import cleanup_memory
 import transformers
 import wandb
 
@@ -25,35 +25,35 @@ from torch.nn.utils import clip_grad_norm_
 # from peft_pretraining.modeling_llama import LlamaDecoderLayer
 
 
-def initialize_fsdp(model, dtype):
-    wrapping_policy = partial(
-        transformer_auto_wrap_policy,
-        transformer_layer_cls={
-            LlamaDecoderLayer,
-        },
-    )
+# def initialize_fsdp(model, dtype):
+#     wrapping_policy = partial(
+#         transformer_auto_wrap_policy,
+#         transformer_layer_cls={
+#             LlamaDecoderLayer,
+#         },
+#     )
 
-    if dtype in ["bf16", "bfloat16"]:
-        mixed_precision_policy = MixedPrecision(
-            param_dtype=torch.bfloat16,
-            reduce_dtype=torch.bfloat16,  # Gradient communication precision
-            buffer_dtype=torch.bfloat16,  # Buffer precision
-        )
-    elif dtype == "float32":
-        mixed_precision_policy = MixedPrecision(
-            param_dtype=torch.float32,
-            reduce_dtype=torch.float32,  # Gradient communication precision
-            buffer_dtype=torch.float32,  # Buffer precision
-        )
-    else:
-        raise ValueError(f"Dtype {dtype} not supported (only float32 and bfloat16 are)")
+#     if dtype in ["bf16", "bfloat16"]:
+#         mixed_precision_policy = MixedPrecision(
+#             param_dtype=torch.bfloat16,
+#             reduce_dtype=torch.bfloat16,  # Gradient communication precision
+#             buffer_dtype=torch.bfloat16,  # Buffer precision
+#         )
+#     elif dtype == "float32":
+#         mixed_precision_policy = MixedPrecision(
+#             param_dtype=torch.float32,
+#             reduce_dtype=torch.float32,  # Gradient communication precision
+#             buffer_dtype=torch.float32,  # Buffer precision
+#         )
+#     else:
+#         raise ValueError(f"Dtype {dtype} not supported (only float32 and bfloat16 are)")
 
-    model = FSDP(
-        model,
-        mixed_precision=mixed_precision_policy,
-        auto_wrap_policy=wrapping_policy,
-    )
-    return model
+#     model = FSDP(
+#         model,
+#         mixed_precision=mixed_precision_policy,
+#         auto_wrap_policy=wrapping_policy,
+#     )
+#     return model
 
 
 def get_scheculer(
@@ -529,24 +529,7 @@ def train_relora(model, accelerator, dataloader, optimizer, scheduler, args, out
     return None  # Return values aren't needed in distributed setting
 
 
-def cleanup_memory():
-    """Clean up GPU memory and print memory usage before and after cleanup"""
-    if torch.cuda.is_available():
-        # Run nvidia-smi to show memory usage before cleanup (filtering for memory usage)
-        # print("Before cleanup:")
-        # subprocess.run(['nvidia-smi', '--query-gpu=memory.free,memory.used,memory.total', '--format=csv'])
 
-        # Empty cache and reset memory stats
-        torch.cuda.empty_cache()
-        torch.cuda.reset_max_memory_allocated()
-        torch.cuda.reset_peak_memory_stats()
-
-        # Run nvidia-smi again to show memory usage after cleanup
-        # print("\nAfter cleanup:")
-        # subprocess.run(['nvidia-smi', '--query-gpu=memory.free,memory.used,memory.total', '--format=csv'])
-
-    # Collect garbage to free up memory
-    gc.collect()
 
 def train_relora_preempt(model, accelerator, dataloader, optimizer, scheduler, args, 
                  checkpoint_manager=None, start_checkpoint=None, sampler=None):

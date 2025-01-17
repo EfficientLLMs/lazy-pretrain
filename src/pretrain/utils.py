@@ -2,24 +2,30 @@ import numpy as np
 import random
 import torch
 from torch.utils.data import Dataset
-from datasets import load_dataset
 import numpy as np
 import random
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, default_data_collator
-from peft import LoraConfig, PeftModel, get_peft_model
-from accelerate import Accelerator
-import wandb
+from transformers import AutoTokenizer
+import logging
 import os
 from tqdm import tqdm
 from torch.nn.utils import clip_grad_norm_
-from torch.utils.data import Dataset, DataLoader
-
+from torch.utils.data import Dataset
+from pathlib import Path
+import json
+import gc
+import wandb
 
 PYTHIA_TOKENIZER = AutoTokenizer.from_pretrained("EleutherAI/pythia-410m")
 PYTHIA_TOKENIZER.pad_token = PYTHIA_TOKENIZER.eos_token
 
 
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+# Dataset
 class CustomBinFileDataset(Dataset):
     def __init__(self, first_idx, last_idx, num_tokens, chunk_size, debug=False):
         self.chunk_size = chunk_size
@@ -88,6 +94,86 @@ class CustomBinFileDataset(Dataset):
             print(PYTHIA_TOKENIZER.decode(input_ids))
             print()
         return {"input_ids": input_ids}
+
+
+# Data sampler
+class ResumableSampler(torch.utils.data.Sampler):
+    """Sampler that supports resuming from a specific index"""
+    def __init__(self, data_source, start_idx=0):
+        self.data_source = data_source
+        self.start_idx = start_idx
+        
+    def __iter__(self):
+        return iter(range(self.start_idx, len(self.data_source)))
+        
+    def __len__(self):
+        return len(self.data_source) - self.start_idx
+        
+    def state_dict(self):
+        return {'start_idx': self.start_idx}
+        
+    def load_state_dict(self, state_dict):
+        self.start_idx = state_dict['start_idx']
+
+
+# Manage checkpoint
+class CheckpointManager:
+    """Simple checkpoint manager to handle saving and loading of checkpoints"""
+    def __init__(self, output_dir, keep_last_n=2):
+        self.output_dir = Path(output_dir)
+        self.keep_last_n = keep_last_n
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+    def save_checkpoint(self, state, step):
+        checkpoint_path = self.output_dir / f"checkpoint_{step}"
+        tmp_checkpoint_path = checkpoint_path.with_suffix('.tmp')
+        
+        # First save to a temporary file
+        logger.info(f"Saving checkpoint to {checkpoint_path}")
+        torch.save(state, tmp_checkpoint_path)
+        
+        # Atomic rename
+        tmp_checkpoint_path.rename(checkpoint_path)
+        
+        # Save latest checkpoint info
+        with open(self.output_dir / "latest_checkpoint.json", 'w') as f:
+            json.dump({
+                'step': step,
+                'checkpoint_path': str(checkpoint_path)
+            }, f)
+            
+        # Clean up old checkpoints
+        self._cleanup_old_checkpoints()
+    
+    def load_latest_checkpoint(self):
+        latest_file = self.output_dir / "latest_checkpoint.json"
+        if not latest_file.exists():
+            logger.info("No checkpoint found - starting from beginning")
+            return None
+            
+        with open(latest_file, 'r') as f:
+            latest_info = json.load(f)
+            
+        checkpoint_path = Path(latest_info['checkpoint_path'])
+        if not checkpoint_path.exists():
+            logger.warning(f"Checkpoint file {checkpoint_path} not found")
+            return None
+            
+        logger.info(f"Loading checkpoint from {checkpoint_path}")
+        return torch.load(checkpoint_path)
+    
+    def _cleanup_old_checkpoints(self):
+        """Remove all but the latest n checkpoints"""
+        checkpoints = sorted(
+            [f for f in self.output_dir.glob("checkpoint_*") if not f.name.endswith('.tmp')],
+            key=lambda x: int(x.name.split('_')[1])
+        )
+        
+        if len(checkpoints) > self.keep_last_n:
+            for checkpoint in checkpoints[:-self.keep_last_n]:
+                logger.info(f"Removing old checkpoint: {checkpoint}")
+                checkpoint.unlink()
+
 
 
 def seed_all(seed):
@@ -192,3 +278,140 @@ def train(
             save_function=accelerator.save,
         )
 
+
+def cleanup_memory():
+    """Clean up GPU memory and print memory usage before and after cleanup"""
+    if torch.cuda.is_available():
+        # Run nvidia-smi to show memory usage before cleanup (filtering for memory usage)
+        # print("Before cleanup:")
+        # subprocess.run(['nvidia-smi', '--query-gpu=memory.free,memory.used,memory.total', '--format=csv'])
+
+        # Empty cache and reset memory stats
+        torch.cuda.empty_cache()
+        torch.cuda.reset_max_memory_allocated()
+        torch.cuda.reset_peak_memory_stats()
+
+        # Run nvidia-smi again to show memory usage after cleanup
+        # print("\nAfter cleanup:")
+        # subprocess.run(['nvidia-smi', '--query-gpu=memory.free,memory.used,memory.total', '--format=csv'])
+
+    # Collect garbage to free up memory
+    gc.collect()
+
+
+def count_parameters(model):
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    return total_params, trainable_params
+
+
+def train_full_preempt(model, accelerator, dataloader, optimizer, args, 
+                 checkpoint_manager=None, start_checkpoint=None, sampler=None):
+    """
+    Training loop for full parameter training (with preempting).
+    """
+
+    cleanup_memory()
+    model.train()
+
+    if start_checkpoint is not None:
+        start_step = start_checkpoint['global_step'] + 1
+        # last_relora_reset = start_checkpoint['last_relora_reset']
+
+        print(f"Resuming training from step {start_step}")
+        
+        optimizer.zero_grad()
+        cleanup_memory()
+    else:
+        start_step = 0
+        # last_relora_reset = 0
+    
+    # Debug prints from all processes
+    print(f"\nProcess {accelerator.process_index} debug info:")
+    print(f"  Device: {accelerator.device}")
+    print(f"  Is main process: {accelerator.is_main_process}")
+    print(f"  Model device: {next(model.parameters()).device}")
+    print(f"  Is model training: {model.training}")
+    print(f"  Starting/Resuming from step: {start_step}")
+
+    # Synchronize before starting training loop
+    print(f"\nProcess {accelerator.process_index} waiting for synchronization...")
+    accelerator.wait_for_everyone()
+    print(f"Process {accelerator.process_index} synchronized")
+
+    if accelerator.is_main_process:
+        print("\nStarting training loop...")
+        progress_bar = tqdm(total=len(dataloader), desc="Training", initial=start_step)
+    
+    try:
+        for step, batch in enumerate(dataloader, start=start_step):
+            
+            # Regular training step
+            optimizer.zero_grad()
+            outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
+            loss = outputs.loss
+            
+            accelerator.backward(loss)
+            clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+
+            # Get loss values and log
+            loss_value = accelerator.gather(loss).mean().item()
+            ppl_value = torch.exp(torch.tensor(loss_value)).item()
+            current_lr = optimizer.param_groups[0]['lr']
+
+            if accelerator.is_main_process:
+                wandb.log({
+                    "loss": loss_value,
+                    "ppl": ppl_value,
+                    "learning_rate": current_lr,
+                    "step": step,
+                }, step=step)
+                
+                progress_bar.update(1)
+                if step % 100 == 0:
+                    print(f"Step {step}, loss: {loss_value:.4f}, ppl: {ppl_value:.2f}, lr: {current_lr:.2e}")
+            
+            # Save checkpoint
+            if accelerator.is_main_process and (step > 0) and (step % args.checkpoint_freq == 0):
+                unwrapped_model = accelerator.unwrap_model(model)
+                checkpoint_state = {
+                    'global_step': step,
+                    'model_state_dict': unwrapped_model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'sampler_state': sampler.state_dict() if sampler else None,
+                    'loss': loss_value,
+                }
+                checkpoint_manager.save_checkpoint(checkpoint_state, step)
+
+            # Free up memory
+            del loss, outputs, batch
+            cleanup_memory()
+
+    except Exception as e:
+        print(f"Error during training step {step}: {str(e)}")
+        if accelerator.is_main_process and checkpoint_manager is not None:
+            unwrapped_model = accelerator.unwrap_model(model)
+            checkpoint_state = {
+                'global_step': step,
+                'model_state_dict': unwrapped_model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'sampler_state': sampler.state_dict() if sampler else None,
+                'loss': loss_value,
+            }
+            checkpoint_manager.save_checkpoint(checkpoint_state, step)
+        raise e
+
+    accelerator.wait_for_everyone()
+    if accelerator.is_main_process:
+        print(f"Training finished.")
+        progress_bar.close()
+        wandb.finish()
+
+        if not args.debug:
+            unwrapped_model = accelerator.unwrap_model(model)
+            unwrapped_model.save_pretrained(
+                args.output_dir,
+                is_main_process=accelerator.is_main_process,
+                save_function=accelerator.save,
+            )

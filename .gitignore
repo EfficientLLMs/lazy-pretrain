@@ -188,6 +188,8 @@ eval/*_full.txt
 .token
 
 # Checkpoints
+checkpoints
+models
 checkpoints/
-
+models/
 wandb/
