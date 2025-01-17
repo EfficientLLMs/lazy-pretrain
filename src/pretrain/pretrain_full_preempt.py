@@ -57,7 +57,9 @@ def parse_args():
 
     parser.add_argument('--checkpoint_dir', type=str, default='checkpoints/pythia-70m-to-pythia-410m-relora',
                     help='Directory to save the trained model')
-    
+
+    parser.add_argument('--debug', action='store_true',
+                    help='Debug mode')  
 
 
     # on-the-fly data processing
