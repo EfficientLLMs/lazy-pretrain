@@ -1,0 +1,9 @@
+{
+  "lambada_openai": {
+    "alias": "lambada_openai",
+    "perplexity,none": 37.906671637922265,
+    "perplexity_stderr,none": 1.412075390204294,
+    "acc,none": 0.33572676111003297,
+    "acc_stderr,none": 0.006579280940278406
+  }
+}
