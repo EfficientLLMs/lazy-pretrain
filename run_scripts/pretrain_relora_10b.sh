@@ -2,7 +2,7 @@
 #SBATCH --job-name=pythia-70m-step138000-10b-relora
 #SBATCH --mem=80G
 #SBATCH --gres=gpu:A6000:8
-#SBATCH --partition=preempt
+#SBATCH --partition=general
 #SBATCH --output=.slurm_logs/pythia-70m-step138000-10b-relora.out
 #SBATCH --time=02-00:00
 #SBATCH --mail-type=ALL

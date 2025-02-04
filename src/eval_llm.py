@@ -4,6 +4,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 from accelerate import Accelerator
 import huggingface_hub
+from pretrain.utils import CheckpointManager
+import tempfile
+from pretrain.relora import ReLoRaModel
 
 def evaluate_model(
     model_path: str,
@@ -37,6 +40,7 @@ def evaluate_model(
             trust_remote_code=True
         )
     else:
+        print(f'Loading model from {model_path}')
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
             # torch_dtype=torch.bfloat16,
@@ -154,12 +158,23 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--checkpoint_path", type=str, default=None, help="Path to the checkpoint folder to evaluate"
+    )
+
+    parser.add_argument(
         "--parallelize", action="store_true"
     )
 
     parser.add_argument(
         "--token", type=str, default=None, help="HuggingFace token for private dataset"
     )
+
+    parser.add_argument('--rank', type=int, default=256,
+        help='Rank of the Lora module'
+    )
+
+    parser.add_argument('--lora_alpha', type=int, default=256,
+                        help='Alpha of the lora module (\\deltaW * \\alpha/r)')
 
     return parser.parse_args()
 
@@ -180,7 +195,65 @@ if __name__ == "__main__":
         huggingface_hub.login(token=token)
 
 
-    if args.lora_path is None:
+    
+
+    if args.checkpoint_path is not None:
+        
+        checkpoint_manager = CheckpointManager(args.checkpoint_path)
+        latest_checkpoint = checkpoint_manager.load_latest_checkpoint()
+
+        # Create temp file of merged model
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model = AutoModelForCausalLM.from_pretrained(
+                args.base_model_path,
+            )
+
+            # Remove wrapped_model. from state dict keys
+            is_relora = False
+            for k, v in latest_checkpoint['model_state_dict'].items():
+                if 'lora_A' in k:
+                    is_relora = True
+                    continue
+
+            # If relora weights present, create ReLora Model
+            if is_relora:
+                model = ReLoRaModel(
+                    model,
+                    target_modules=[
+                        "query_key_value",
+                        "dense",
+                        "dense_h_to_4h",
+                        "dense_4h_to_h",
+                    ],
+                    r=args.rank,
+                    lora_alpha=args.lora_alpha,
+                    lora_dropout=0.05,
+                    # it doesn't have these parameters
+                    # bias="none",  
+                    # task_type="CAUSAL_LM",
+                    keep_original_weights=True,
+                    lora_only=False,
+                    trainable_scaling=False,
+                )
+
+            # Load state dict from latest checkpoint
+            model.load_state_dict(latest_checkpoint['model_state_dict'])
+
+            # Save model to temporary directory
+            model.save_pretrained(tmp_dir)
+
+            # Run evaluation
+            results = evaluate_model(
+                model_path=tmp_dir,
+                checkpoint=None,
+                tokenizer_path=args.tokenizer_path,
+                tasks=args.tasks,
+                num_fewshot=args.num_fewshot,
+                batch_size=args.batch_size,
+                parallelize=args.parallelize,
+            )
+
+    elif args.lora_path is None:
         results = evaluate_model(
             model_path=args.base_model_path,
             checkpoint=args.checkpoint_step,

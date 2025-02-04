@@ -145,7 +145,7 @@ class CheckpointManager:
         # Clean up old checkpoints
         self._cleanup_old_checkpoints()
     
-    def load_latest_checkpoint(self):
+    def load_latest_checkpoint(self, device='cpu'):
         latest_file = self.output_dir / "latest_checkpoint.json"
         if not latest_file.exists():
             logger.info("No checkpoint found - starting from beginning")
@@ -160,7 +160,7 @@ class CheckpointManager:
             return None
             
         logger.info(f"Loading checkpoint from {checkpoint_path}")
-        return torch.load(checkpoint_path)
+        return torch.load(checkpoint_path, map_location=device)
     
     def _cleanup_old_checkpoints(self):
         """Remove all but the latest n checkpoints"""

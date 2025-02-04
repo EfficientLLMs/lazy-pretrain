@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=eval_pythia-410m-step10000
+#SBATCH --job-name=410m_step139000_8b_full_eval_results
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:A6000:2
-#SBATCH --output=.slurm_logs/eval_pythia-410m-step10000-again.out
+#SBATCH --output=.slurm_logs/410m_step139000_8b_full_eval_results.out
 #SBATCH --time=01-00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
@@ -53,11 +53,12 @@
 
 python src/eval_llm.py \
     --base_model_path "EleutherAI/pythia-410m" \
-    --checkpoint_step "step10000" \
+    --checkpoint_step "step40000" \
     --tokenizer_path "EleutherAI/pythia-410m" \
-    --eval_results_path "eval/410m_step10000_eval_results" \
-    --tasks "lambada_openai" \
-    --token ".token"
+    --eval_results_path "eval/410m_step139000_8b_full_eval_results" \
+    --tasks "lambada_openai" "paloma" \
+    --token ".token" \
+    --checkpoint_path "checkpoints/pythia-70m-step139000-to-pythia-410m-8b_full-1e-5"
 
 
 # python src/eval_llm.py \

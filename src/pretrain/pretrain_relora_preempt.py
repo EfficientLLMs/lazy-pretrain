@@ -106,7 +106,7 @@ def main():
 
     # Initialize checkpoint manager and try to load checkpoint
     checkpoint_manager = CheckpointManager(args.checkpoint_dir, keep_last_n=2)
-    checkpoint = checkpoint_manager.load_latest_checkpoint()
+    checkpoint = checkpoint_manager.load_latest_checkpoint(device=device)
 
     # Load dataset
     if args.use_on_the_fly:
@@ -251,7 +251,7 @@ def main():
 
     # Prepare for accelerator
     print("\nPreparing for accelerator...")
-    model = model.to(device)
+    # model = model.to(device)
     cleanup_memory()
     
     model, optimizer, dataloader, scheduler = accelerator.prepare(
