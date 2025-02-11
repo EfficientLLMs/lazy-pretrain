@@ -17,3 +17,4 @@ scipy
 evaluate
 packaging
 ninja
+ai2-olmo

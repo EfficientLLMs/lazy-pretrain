@@ -11,8 +11,9 @@
 
 # Define variables
 EXP_NAME="6b_full-1e-5"
-STEP="step140000"
+STEP="step40000"
 MODEL_NAME="pythia-70m-"$STEP"-to-pythia-410m"
+NUM_TOKENS=6_000_000_000
 
 GROWN_MODEL="models/"$MODEL_NAME
 TRAINED_MODEL="models/"$MODEL_NAME"-"$EXP_NAME
@@ -43,7 +44,7 @@ accelerate launch src/pretrain/pretrain_full.py \
     --use_on_the_fly \
     --first_idx 19 \
     --last_idx 20 \
-    --num_tokens 6_000_000_000 \
+    --num_tokens $NUM_TOKENS \
     --chunk_size 512
     
     # --checkpoint_dir "checkpoints/"$EXP_NAME"-"$MODEL_NAME

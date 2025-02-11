@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=6b_full-1e-5-pythia-70m-step40000-to-pythia-410m
 #SBATCH --mem=32G
-#SBATCH --gres=gpu:A6000:8
+#SBATCH --gres=gpu:A100_40GB:8
 #SBATCH --output=.slurm_logs/6b_full-1e-5-pythia-70m-step40000-to-pythia-410m.out
 #SBATCH --time=02-00:00
 #SBATCH --mail-type=ALL
@@ -17,6 +17,7 @@ NUM_TOKENS=6_000_000_000
 
 GROWN_MODEL="models/"$MODEL_NAME
 TRAINED_MODEL="models/"$MODEL_NAME"-"$EXP_NAME
+CHECKPOINT_DIR="checkpoints/"$MODEL_NAME"-"$EXP_NAME
 
 # Grow model if grown model does not exist yet
 if [ ! -d $GROWN_MODEL ]; then
@@ -38,7 +39,7 @@ accelerate launch src/pretrain/pretrain_full_preempt.py \
     --grown_model $GROWN_MODEL \
     --tokenizer "EleutherAI/pythia-410m" \
     --seed 1234 \
-    --batch_size 8 \
+    --batch_size 4 \
     --lr 1e-5 \
     --output_dir $TRAINED_MODEL \
     --checkpoint_dir $CHECKPOINT_DIR \
