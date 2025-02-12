@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=410m_step139000_8b_full_eval_results
+#SBATCH --job-name=1b_grown_olmo_eval
 #SBATCH --mem=32G
-#SBATCH --gres=gpu:A6000:2
-#SBATCH --output=.slurm_logs/410m_step139000_8b_full_eval_results.out
+#SBATCH --gres=gpu:A6000:4
+#SBATCH --output=.slurm_logs/1b_grown_olmo_eval.out
 #SBATCH --time=01-00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
@@ -12,54 +12,15 @@
 # STEP="step140000"
 # MODEL_NAME="pythia-70m-"$STEP"-to-pythia-410m"
 
-# GROWN_MODEL="models/"$MODEL_NAME
-# TRAINED_MODEL="models/"$MODEL_NAME"-"$EXP_NAME
-
-# echo "Evaluating "$TRAINED_MODEL
-
-# python src/eval_llm.py \
-#     --base_model_path "models-xinyue/pythia-70m-step141000-4b-relora-new" \
-#     --tokenizer_path "EleutherAI/pythia-410m" \
-#     --eval_results_path "eval/pythia-70m-step141000-4b-relora-new" \
-#     --tasks "paloma" "lambada_openai" \
-#     --token ".token"
-
-# --lora_path "models/pythia-70m-step140000-to-pythia-410m-lora-alpha256-allmod" \
-# pythia-70m-step142000-to-pythia-410m-full-1b-1e-5
-
-# eval_full_70m_step142000_410m_eval_results_1b_1e-5
-
-# "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
-# python src/eval_llm.py \
-#     --base_model_path "models/pythia-70m-step142000-to-pythia-410m-full-2b-1e-5" \
-#     --tokenizer_path "EleutherAI/pythia-70m" \
-#     --eval_results_path "eval/eval_full_70m_step142000_410m_eval_results_2b_1e-5" \
-#     --tasks "paloma" "lambada_openai" \
-#     --token ".token"
-
-
-# python src/eval_llm.py \
-#     --base_model_path "models/pythia-70m-to-pythia-410m" \
-#     --lora_path "models/pythia-70m-to-pythia-410m-lora-20m" \
-#     --tokenizer_path "EleutherAI/pythia-70m" \
-#     --eval_results_path "eval/r256_70m_410m_eval_results_20m" \
-#     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
-
-# python src/eval_llm.py \
-#     --base_model_path "EleutherAI/pythia-70m" \
-#     --tokenizer_path "EleutherAI/pythia-70m" \
-#     --eval_results_path "eval/70m_eval_results" \
-#     --tasks "lambada_openai" "arc_easy" "arc_challenge" "hellaswag" "piqa" "winogrande" "sciq" "logiqa" "logiqa2" "openbookqa" \
-
 python src/eval_llm.py \
-    --base_model_path "EleutherAI/pythia-410m" \
-    --checkpoint_step "step40000" \
-    --tokenizer_path "EleutherAI/pythia-410m" \
-    --eval_results_path "eval/410m_step139000_8b_full_eval_results" \
-    --tasks "lambada_openai" "paloma" \
+    --base_model_path "models/OLMo-1B-to-OLMo-7B" \
+    --tokenizer_path "allenai/OLMo-1B" \
+    --eval_results_path "eval/OLMo-1B-to-OLMo-7B_eval_results" \
+    --tasks "lambada_openai" "paloma_c4_100_domains" \
     --token ".token" \
-    --checkpoint_path "checkpoints/pythia-70m-step139000-to-pythia-410m-8b_full-1e-5"
+    # --checkpoint_path "checkpoints/pythia-70m-step139000-to-pythia-410m-8b_full-1e-5"
 
+    # --checkpoint_step "step40000" \
 
 # python src/eval_llm.py \
 #     --base_model_path "models-xinyue/pythia-70m-step140000-to-pythia-410m" \

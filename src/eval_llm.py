@@ -279,8 +279,8 @@ if __name__ == "__main__":
     print(results['results'])
 
     # Save into a file without json serialization
-    with open(args.eval_results_path + "_full.txt", "w") as f:
-        f.write(str(results))
+    # with open(args.eval_results_path + "_full.txt", "w") as f:
+    #     f.write(str(results))
     
     # Optionally save results
     import json
