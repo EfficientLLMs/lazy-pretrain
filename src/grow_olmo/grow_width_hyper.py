@@ -95,20 +95,6 @@ def wide_attn(x, old_width, new_width, attn_ratio):
     return y
 
 
-def wide_attn_out(x, old_width, new_width, attn_ratio):
-    """
-    Function preserving expansion of attention out layer from (old_width, old_width) 
-    to (new_width, new_width)
-
-    Args:
-        x (torch.Tensor): input tensor of shape (old_width, old_width)
-        old_width (int): old width of the attention layer
-        new_width (int): new width of the attention layer
-
-    Returns:
-        torch.Tensor: expanded tensor of shape (new_width, new_width)
-    """
-    pass
      
 
 def wide_embedding_in(x, old_width, new_width):
@@ -152,6 +138,10 @@ def wide_state_dict(old_state_dict, old_width, new_width, old_head_dim, new_head
     new_state_dict = {}
     for key, weight in old_state_dict.items():
         new_state_dict[key] = wide_param(key, weight, old_width, new_width, old_head_dim, new_head_dim)
+    
+    # Clone the unembedding layer from the source network embedding layer
+    new_state_dict['model.transformer.ff_out.weight'] = wide_embedding_out(old_state_dict['model.transformer.wte.weight'], old_width, new_width)
+    
     return new_state_dict
 
 
@@ -273,7 +263,7 @@ def clone_olmo_qkv_weight(
 
 
 def wide_param(key, weight, old_width, new_width, old_head_dim, new_head_dim, **kwargs):
-    if 'embed_in' in key or 'wte' in key:
+    if 'wte' in key:
         # only output dim expands
         return wide_embedding_in(weight, old_width, new_width)
     
@@ -386,7 +376,7 @@ def expand_width(model, old_width, new_width, attn_heads=None):
     new_config_dict["n_heads"] = new_n_heads
     # new_config_dict["_name_or_path"] += f"-expand-width-{new_width}"
     new_config_dict["mlp_hidden_size"] = new_width * old_config.mlp_ratio
-    # new_config_dict["weight_tying"] = False
+    new_config_dict["weight_tying"] = False
     new_config = type(old_config).from_dict(new_config_dict)
     
 

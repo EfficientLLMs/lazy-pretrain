@@ -103,12 +103,14 @@ def main():
         )
 
     PROMPT = "Finish the following sentence:\nRaindrops on roses"
-    PROMPT = "Finish the following sentence:\nHappy birthday in gibberish is"
+    PROMPT = "Here are all the emotions written backwards:"
     
     print(f"Original model: {small_model.config.n_layers} layers, {small_model.config.d_model} width")
 
-    inputs = tokenizer(PROMPT, return_tensors="pt")
-    tokens = small_model.generate(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
+    inputs = tokenizer(PROMPT, return_tensors="pt", return_token_type_ids=False)
+    # tokens = small_model.generate(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
+    tokens = small_model.generate(**inputs)
+    # print(tokens)
     print(tokenizer.decode(tokens[0]))
     print()
 
@@ -124,7 +126,9 @@ def main():
 
     print(f"Grown model: {large_model.config.n_layers} layers, {large_model.config.d_model} width")
     
-    tokens = large_model.generate(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
+    # tokens = large_model.generate(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
+    tokens = large_model.generate(**inputs)
+    # print(tokens)
     print(tokenizer.decode(tokens[0]))
     print()
 
