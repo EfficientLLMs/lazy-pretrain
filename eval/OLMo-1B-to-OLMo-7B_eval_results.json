@@ -1,0 +1,18 @@
+{
+  "lambada_openai": {
+    "alias": "lambada_openai",
+    "perplexity,none": 7.501924139081528,
+    "perplexity_stderr,none": 0.19542190125262554,
+    "acc,none": 0.5631670871337086,
+    "acc_stderr,none": 0.006910164433406235
+  },
+  "paloma_c4_100_domains": {
+    "alias": "C4 100 Domains",
+    "word_perplexity,none": 25.91289487992714,
+    "word_perplexity_stderr,none": "N/A",
+    "byte_perplexity,none": 1.721383096254814,
+    "byte_perplexity_stderr,none": "N/A",
+    "bits_per_byte,none": 0.7835682069431072,
+    "bits_per_byte_stderr,none": "N/A"
+  }
+}

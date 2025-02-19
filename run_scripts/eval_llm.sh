@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=1b_grown_olmo_eval
 #SBATCH --mem=32G
-#SBATCH --gres=gpu:A6000:4
+#SBATCH --gres=gpu:A6000:8
 #SBATCH --output=.slurm_logs/1b_grown_olmo_eval.out
 #SBATCH --time=01-00:00
 #SBATCH --mail-type=ALL
@@ -12,12 +12,22 @@
 # STEP="step140000"
 # MODEL_NAME="pythia-70m-"$STEP"-to-pythia-410m"
 
+
 python src/eval_llm.py \
     --base_model_path "models/OLMo-1B-to-OLMo-7B" \
     --tokenizer_path "allenai/OLMo-1B" \
     --eval_results_path "eval/OLMo-1B-to-OLMo-7B_eval_results" \
     --tasks "lambada_openai" "paloma_c4_100_domains" \
     --token ".token" \
+    --batch_size 1
+
+# python src/eval_llm.py \
+#     --base_model_path "allenai/OLMo-1B" \
+#     --tokenizer_path "allenai/OLMo-1B" \
+#     --eval_results_path "eval/OLMo-1B_eval_results" \
+#     --tasks "lambada_openai" "paloma_c4_100_domains" \
+#     --token ".token" \
+#     --batch_size 1
     # --checkpoint_path "checkpoints/pythia-70m-step139000-to-pythia-410m-8b_full-1e-5"
 
     # --checkpoint_step "step40000" \

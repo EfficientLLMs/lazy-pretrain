@@ -19,11 +19,51 @@ import wandb
 PYTHIA_TOKENIZER = AutoTokenizer.from_pretrained("EleutherAI/pythia-410m")
 PYTHIA_TOKENIZER.pad_token = PYTHIA_TOKENIZER.eos_token
 
+OLMO_TOKENIZER = AutoTokenizer.from_pretrained('allenai/OLMo-1B', trust_remote_code=True)
+OLMO_TOKENIZER.pad_token = OLMO_TOKENIZER.eos_token
+
+
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+class CustomDolmaDataset(Dataset):
+    
+    def __init__(self, memmap_file, chunk_size, num_tokens, debug=False) -> None:
+        super().__init__()
+        self.chunk_size = chunk_size
+        self.pad_token_id = OLMO_TOKENIZER.pad_token_id
+        self.num_tokens = num_tokens
+        self.debug = debug
+
+        self.memmap_file = np.memmap(memmap_file, mode="r", dtype=np.int64, shape=(num_tokens,))
+
+    def __len__(self):
+        return len(self.memmap_file) // self.chunk_size
+
+    def __getitem__(self, idx):
+        start = idx * self.chunk_size
+        end = min(start + self.chunk_size, len(self.memmap_file))
+        chunk = np.full(self.chunk_size, self.pad_token_id, dtype=np.uint16)
+
+        if self.debug:
+            # print("self.memmap_file[start:end]: ", self.memmap_file[start:end])
+            print(f'idx: {idx}, start: {start}, end: {end}')
+            print(f'Decoded OLMO_TOKENIZER.pad_token_id: {OLMO_TOKENIZER.decode([self.pad_token_id])}')
+    
+        chunk[:end-start] = self.memmap_file[start:end]
+
+        input_ids = torch.from_numpy(chunk.astype(np.int64))
+    
+        if self.debug:
+            print("\n\nDetokenized text:")
+            print(input_ids)
+            print(OLMO_TOKENIZER.decode(input_ids))
+            print()
+
+        return {"input_ids": input_ids}
 
 # Dataset
 class CustomBinFileDataset(Dataset):
@@ -415,3 +455,16 @@ def train_full_preempt(model, accelerator, dataloader, optimizer, args,
                 is_main_process=accelerator.is_main_process,
                 save_function=accelerator.save,
             )
+
+
+if __name__ == "__main__":
+    
+    dataset = CustomDolmaDataset(
+        memmap_file="data/dolma_tokenized/5m.npy", 
+        chunk_size=2048, 
+        debug=True, 
+        num_tokens=5_000_000
+    )
+
+    dataset[1]
+    # dataset[100]

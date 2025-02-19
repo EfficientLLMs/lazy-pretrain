@@ -25,7 +25,7 @@ def evaluate_model(
     
     # Load tokenizer
     tokenizer_path = tokenizer_path or model_path
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
@@ -89,7 +89,7 @@ def evaluate_merged_model(
     
     # Load tokenizer
     tokenizer_path = tokenizer_path or base_model_path
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     

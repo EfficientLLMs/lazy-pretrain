@@ -13,7 +13,8 @@ from torch.utils.data import Dataset, DataLoader
 import sys
 
 # Relative imports
-from utils import CustomBinFileDataset, seed_all, train
+from utils import CustomBinFileDataset, seed_all, train, CustomDolmaDataset
+from prepare_memmap import map_number_to_text
 
 
 def count_parameters(model):
@@ -121,6 +122,13 @@ def main():
         )
         # total_tokens = len(dataset) * args.chunk_size
         # assert total_tokens == args.num_tokens
+    elif args.dataset == 'dolma':
+        dataset = CustomDolmaDataset(
+            memmap_file=f"data/dolma_tokenized/{map_number_to_text(args.num_tokens)}.npy", 
+            chunk_size=args.chunk_size, 
+            debug=False, 
+            num_tokens=args.num_tokens
+        )
     else:
         dataset = torch.load(args.dataset)
 

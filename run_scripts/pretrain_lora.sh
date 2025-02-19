@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=pythia-70m-step142000-1b-lora-alpha256-allmod-1e-5
+#SBATCH --job-name=olmo-5m
 #SBATCH --mem=32G
-#SBATCH --gres=gpu:A6000:4
+#SBATCH --gres=gpu:A6000:8
 #SBATCH --partition=general
-#SBATCH --output=.slurm_logs/pythia-70m-step142000-1b-lora-alpha256-allmod-1e-5.out
+#SBATCH --output=.slurm_logs/olmo-5m.out
 #SBATCH --time=01-00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
@@ -11,16 +11,14 @@
 
 
 accelerate launch src/pretrain/pretrain_lora.py \
-    --grown_model "models/pythia-70m-step142000-to-pythia-410m" \
-    --tokenizer "EleutherAI/pythia-410m" \
+    --grown_model "models/OLMo-1B-to-OLMo-7B" \
+    --tokenizer "allenai/OLMo-1B" \
     --seed 1234 \
     --rank 256 \
     --lora_alpha 256 \
-    --batch_size 64 \
+    --batch_size 4 \
     --lr 1e-5 \
-    --output_dir "models/pythia-70m-step142000-1b-lora-alpha256-allmod-1e-5" \
-    --use_on_the_fly \
-    --first_idx 19 \
-    --last_idx 20 \
-    --num_tokens 1_000_000_000 \
-    --chunk_size 512
+    --output_dir "models/OLMo-1B-to-OLMo-7B-5m-lora-alpha256-allmod-1e-5" \
+    --dataset 'dolma' \
+    --num_tokens 5_000_000 \
+    --chunk_size 2048

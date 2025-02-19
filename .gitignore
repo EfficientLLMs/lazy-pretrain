@@ -193,3 +193,7 @@ models
 checkpoints/
 models/
 wandb/
+
+dolma/
+error_logs/
+output_logs/
