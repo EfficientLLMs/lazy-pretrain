@@ -13,8 +13,9 @@ from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import Dataset, DataLoader
 
 # Relative imports
-from utils import CustomBinFileDataset, seed_all, train
-
+from utils import CustomBinFileDataset, seed_all, train, CustomDolmaDataset
+from prepare_memmap import map_number_to_text
+from tinyolmo import TinyOLMo
 
 
 
@@ -78,7 +79,10 @@ def main():
         if not os.path.exists(args.checkpoint_dir):
             os.makedirs(args.checkpoint_dir)
 
-    if args.resume:
+    if 'tiny' in args.grown_model:
+        model = TinyOLMo(args.grown_model)
+
+    elif args.resume:
         # Find the latest checkpoint
         checkpoints = os.listdir(args.checkpoint_dir)
         tokens_seen = [int(ckpt.split(".")[0]) for ckpt in checkpoints]
@@ -116,6 +120,13 @@ def main():
         )
         # total_tokens = len(dataset) * args.chunk_size
         # assert total_tokens == args.num_tokens
+    elif args.dataset == 'dolma':
+        dataset = CustomDolmaDataset(
+            memmap_file=f"data/dolma_tokenized/{map_number_to_text(args.num_tokens)}.npy", 
+            chunk_size=args.chunk_size, 
+            debug=False, 
+            num_tokens=args.num_tokens
+        )
     else:
         dataset = torch.load(args.dataset)
 

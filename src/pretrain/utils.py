@@ -230,7 +230,8 @@ def train(
     optimizer,
     output_dir,
     debug=False,
-    checkpoint_dir=None
+    checkpoint_dir=None,
+    autocast=False
 ):
     
     model.train()

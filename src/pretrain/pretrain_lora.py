@@ -157,7 +157,7 @@ def main():
     model, optimizer, dataloader = accelerator.prepare(model, optimizer, dataloader)
 
     # Train model
-    train(model, accelerator, dataloader, optimizer, args.output_dir, debug=args.debug)
+    train(model, accelerator, dataloader, optimizer, args.output_dir, debug=args.debug, autocast=True)
 
     
 

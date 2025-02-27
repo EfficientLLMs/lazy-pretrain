@@ -1,10 +1,16 @@
 import argparse
 import os
+import sys
 import math
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import grow_depth, grow_width_hyper
 import pickle
 from utils import MODEL_MAP, OLMo_1B, OLMo_7B
+
+SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
+
+from src.pretrain.tinyolmo import TinyOLMo
 
 
 
@@ -54,7 +60,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Grow and continue pretraining a model')
 
     parser.add_argument('--small_model', type=str, default='OLMo-1B',
-                        choices=MODEL_MAP.keys(), help='Small model to grow from')
+                        help='Small model to grow from')
 
     parser.add_argument('--large_depth', type=int, default=OLMo_7B.layers,
                         help='Desired depth of the large model')
@@ -87,10 +93,14 @@ def main():
     args = parse_args()
 
     # Load universal tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_MAP[args.small_model], trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained('allenai/OLMo-1B', trust_remote_code=True)
 
     # Load small model
-    if args.checkpoint_step is not None:
+
+    if 'tiny' in args.small_model:
+        small_model = TinyOLMo(args.small_model)
+
+    elif args.checkpoint_step is not None:
         small_model = AutoModelForCausalLM.from_pretrained(
             MODEL_MAP[args.small_model],
             revision=args.checkpoint_step,
@@ -106,6 +116,11 @@ def main():
     PROMPT = "Here are all the emotions written backwards:"
     
     print(f"Original model: {small_model.config.n_layers} layers, {small_model.config.d_model} width")
+
+    # Print all parameters
+    for name, param in small_model.named_parameters():
+        print(f'{name}: {param.shape}')
+    print(f'Model class: {type(small_model)} {small_model}')
 
     inputs = tokenizer(PROMPT, return_tensors="pt", return_token_type_ids=False)
     # tokens = small_model.generate(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])

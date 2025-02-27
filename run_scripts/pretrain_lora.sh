@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=olmo-5m
-#SBATCH --mem=32G
+#SBATCH --mem=64G
 #SBATCH --gres=gpu:A6000:8
 #SBATCH --partition=general
 #SBATCH --output=.slurm_logs/olmo-5m.out
@@ -16,7 +16,7 @@ accelerate launch src/pretrain/pretrain_lora.py \
     --seed 1234 \
     --rank 256 \
     --lora_alpha 256 \
-    --batch_size 4 \
+    --batch_size 2 \
     --lr 1e-5 \
     --output_dir "models/OLMo-1B-to-OLMo-7B-5m-lora-alpha256-allmod-1e-5" \
     --dataset 'dolma' \

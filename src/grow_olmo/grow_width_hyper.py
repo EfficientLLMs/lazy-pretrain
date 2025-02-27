@@ -379,6 +379,8 @@ def expand_width(model, old_width, new_width, attn_heads=None):
     new_config_dict["weight_tying"] = False
     new_config = type(old_config).from_dict(new_config_dict)
     
+    if hasattr(model, 'model_dir'):
+        pass
 
     model = type(model)(new_config)
 
