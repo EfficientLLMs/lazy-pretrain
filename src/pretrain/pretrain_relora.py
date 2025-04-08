@@ -13,9 +13,10 @@ from torch.utils.data import Dataset, DataLoader
 import sys
 
 # Relative imports
-from utils import CustomBinFileDataset, seed_all, train
+from utils import CustomBinFileDataset, seed_all, train, CustomDolmaDataset
 from relora import ReLoRaModel
 from relora_utils import get_scheculer, train_relora
+from prepare_memmap import map_number_to_text
 
 
 def count_parameters(model):
@@ -108,17 +109,24 @@ def main():
             chunk_size=args.chunk_size,
             debug=args.debug
         )
+    elif args.dataset == 'dolma':
+        dataset = CustomDolmaDataset(
+            memmap_file=f"data/dolma_tokenized/{map_number_to_text(args.num_tokens)}.npy", 
+            chunk_size=args.chunk_size, 
+            debug=False, 
+            num_tokens=args.num_tokens
+        )
     else:
         dataset = torch.load(args.dataset)
 
-    # Create dataloader
+    # Create dataloader with memory efficient settings
     dataloader = DataLoader(
         dataset,
         batch_size=args.batch_size, 
         shuffle=False,  # keep the same order
         collate_fn=default_data_collator,
-        num_workers=1,
-        pin_memory=True
+        num_workers=0,  # Reduce memory overhead
+        pin_memory=False,  # Disable pin_memory to reduce memory usage
     )
 
     total_batches = len(dataloader)
@@ -170,18 +178,43 @@ def main():
             }
         )
 
-    # Load model
-    model = AutoModelForCausalLM.from_pretrained(args.grown_model, device_map=device)
+    # Load model with memory efficient settings
+    if torch.cuda.is_available():
+        print(f"\nMemory before loading model: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+    
+    model = AutoModelForCausalLM.from_pretrained(
+        args.grown_model,
+        device_map=device,
+    )
+    
+    if torch.cuda.is_available():
+        print(f"Memory after loading model: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+    
+    # Enable gradient checkpointing
     model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+    
+    if torch.cuda.is_available():
+        print(f"Memory after enabling gradient checkpointing: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+    
+    # Print model memory usage
+    if torch.cuda.is_available():
+        print(f"Model memory usage: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+        print(f"Max memory allocated: {torch.cuda.max_memory_allocated() / 1024**2:.2f} MB")
+        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
 
     # Use ReLoRA
     model = ReLoRaModel(
         model,
+        # if pythia
+        # target_modules=[
+        #     "query_key_value",
+        #     "dense",
+        #     "dense_h_to_4h",
+        #     "dense_4h_to_h",
+        # ],
+        # if olmo
         target_modules=[
-            "query_key_value",
-            "dense",
-            "dense_h_to_4h",
-            "dense_4h_to_h",
+            "att_proj"
         ],
         r=args.rank,
         lora_alpha=args.lora_alpha,
