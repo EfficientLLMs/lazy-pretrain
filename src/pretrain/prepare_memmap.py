@@ -65,7 +65,7 @@ def prepare_memmap(num_tokens, chunk_size, data_dir, output_dir, debug=False):
     memmap_path = os.path.join(output_dir, f'{map_number_to_text(num_tokens)}.npy')
     memmap = np.memmap(
         memmap_path,
-        dtype=np.int64,
+        dtype=np.uint16,  # Use uint16 for memory efficiency
         mode='w+',
         shape=(num_tokens,)
     )
@@ -113,7 +113,7 @@ def prepare_memmap(num_tokens, chunk_size, data_dir, output_dir, debug=False):
             # Flush the memmap if slice_token_count >= 20m
             if slice_token_count >= 20_000_000:
                 memmap_end = memmap_start + len(all_tokens)
-                memmap[memmap_start:memmap_end] = np.array(all_tokens[:num_tokens - memmap_start], dtype=np.int64)
+                memmap[memmap_start:memmap_end] = np.array(all_tokens[:num_tokens - memmap_start], dtype=np.uint16)
                 memmap_start = memmap_end
                 slice_token_count = 0
                 all_tokens = []
@@ -127,7 +127,7 @@ def prepare_memmap(num_tokens, chunk_size, data_dir, output_dir, debug=False):
 
     # Flush the remaining tokens, reshape the memmap if necessary    
     memmap_end = memmap_start + len(all_tokens)
-    memmap[memmap_start:memmap_end] = np.array(all_tokens[:num_tokens - memmap_start], dtype=np.int64)
+    memmap[memmap_start:memmap_end] = np.array(all_tokens[:num_tokens - memmap_start], dtype=np.uint16)
 
     memmap.flush()
 
@@ -139,7 +139,7 @@ def prepare_memmap(num_tokens, chunk_size, data_dir, output_dir, debug=False):
 
     new_memmap = np.memmap(
         memmap_path,
-        dtype=np.int64,
+        dtype=np.uint16,  # Use uint16 for memory efficiency
         mode='r',
         shape=(num_tokens,)
     )
