@@ -37,25 +37,41 @@ class CustomDolmaDataset(Dataset):
         self.pad_token_id = OLMO_TOKENIZER.pad_token_id
         self.num_tokens = num_tokens
         self.debug = debug
-
-        self.memmap_file = np.memmap(memmap_file, mode="r", dtype=np.int64, shape=(num_tokens,))
+        
+        # Create a single memory-mapped file that stays open
+        self.memmap = np.memmap(
+            memmap_file,
+            dtype=np.uint16,
+            mode='r',
+            shape=(num_tokens,)
+        )
+        
+        if torch.cuda.is_available():
+            print(f"Initial GPU memory: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
 
     def __len__(self):
-        return len(self.memmap_file) // self.chunk_size
+        return self.num_tokens // self.chunk_size
 
     def __getitem__(self, idx):
+        if torch.cuda.is_available():
+            print(f"\nBefore loading chunk {idx}, GPU memory: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+        
+        # Calculate the start and end positions
         start = idx * self.chunk_size
-        end = min(start + self.chunk_size, len(self.memmap_file))
-        chunk = np.full(self.chunk_size, self.pad_token_id, dtype=np.uint16)
-
+        end = min(start + self.chunk_size, self.num_tokens)
+        
+        # Create input_ids tensor directly with padding
+        input_ids = torch.full((self.chunk_size,), self.pad_token_id, dtype=torch.int64)
+        
         if self.debug:
-            # print("self.memmap_file[start:end]: ", self.memmap_file[start:end])
             print(f'idx: {idx}, start: {start}, end: {end}')
             print(f'Decoded OLMO_TOKENIZER.pad_token_id: {OLMO_TOKENIZER.decode([self.pad_token_id])}')
     
-        chunk[:end-start] = self.memmap_file[start:end]
-
-        input_ids = torch.from_numpy(chunk.astype(np.int64))
+        # Copy the data directly from the memory-mapped file
+        input_ids[:end-start] = torch.from_numpy(self.memmap[start:end])
+        
+        if torch.cuda.is_available():
+            print(f"After copying data, GPU memory: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
     
         if self.debug:
             print("\n\nDetokenized text:")
