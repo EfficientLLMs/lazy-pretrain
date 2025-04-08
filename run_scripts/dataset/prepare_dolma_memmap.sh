@@ -6,8 +6,8 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=vmasti@andrew.cmu.edu
 
-python src/prepare_memmap.py \
+python src/pretrain/prepare_memmap.py \
     --data_dir data/dolma \
-    --num_tokens 10_000_000_000 \
+    --num_tokens 5_000_000_000 \
     --chunk_size 512 \
     --output_dir data/dolma_tokenized
