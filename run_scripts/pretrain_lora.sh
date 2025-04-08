@@ -14,9 +14,9 @@ accelerate launch src/pretrain/pretrain_lora.py \
     --grown_model "models/OLMo-1B-to-OLMo-7B" \
     --tokenizer "allenai/OLMo-1B" \
     --seed 1234 \
-    --rank 256 \
-    --lora_alpha 256 \
-    --batch_size 2 \
+    --rank 8 \
+    --lora_alpha 8 \
+    --batch_size 1 \
     --lr 1e-5 \
     --output_dir "models/OLMo-1B-to-OLMo-7B-5m-lora-alpha256-allmod-1e-5" \
     --dataset 'dolma' \

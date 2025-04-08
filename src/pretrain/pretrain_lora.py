@@ -93,7 +93,8 @@ def main():
         lora_alpha=args.lora_alpha,
         lora_dropout=0.05,
         # target_modules=["query_key_value"],
-        target_modules="all-linear",
+        target_modules=["att_proj"],
+        # target_modules="all-linear",
         bias="none",
         task_type="CAUSAL_LM"
     )
