@@ -476,8 +476,9 @@ def train_relora(model, accelerator, dataloader, optimizer, scheduler, args, out
 
             # Regular training step
             optimizer.zero_grad()
-            outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
-            loss = outputs.loss
+            with torch.amp.autocast('cuda', enabled=True):
+                outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
+                loss = outputs.loss
             
             accelerator.backward(loss)
             clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -602,8 +603,9 @@ def train_relora_preempt(model, accelerator, dataloader, optimizer, scheduler, a
 
             # Regular training step
             optimizer.zero_grad()
-            outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
-            loss = outputs.loss
+            with torch.amp.autocast('cuda', enabled=True):
+                outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
+                loss = outputs.loss
             
             accelerator.backward(loss)
             clip_grad_norm_(model.parameters(), max_norm=1.0)

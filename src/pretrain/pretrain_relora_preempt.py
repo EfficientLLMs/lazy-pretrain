@@ -7,9 +7,10 @@ from torch.utils.data import DataLoader
 import logging
 
 # Relative imports
-from utils import CustomBinFileDataset, seed_all, cleanup_memory, ResumableSampler, CheckpointManager, count_parameters
+from utils import CustomBinFileDataset, seed_all, cleanup_memory, ResumableSampler, CheckpointManager, count_parameters, CustomDolmaDataset
 from relora import ReLoRaModel
 from relora_utils import get_scheculer, train_relora_preempt
+from prepare_memmap import map_number_to_text
 
 
 # Setup logging
@@ -104,11 +105,97 @@ def main():
     device = accelerator.device
     print(f"device: {device}")
 
-    # Initialize checkpoint manager and try to load checkpoint
-    checkpoint_manager = CheckpointManager(args.checkpoint_dir, keep_last_n=2)
-    checkpoint = checkpoint_manager.load_latest_checkpoint(device=device)
+    # Initialize variables that will be loaded from checkpoint
+    lora_state_dict = None
+    optimizer_state = None
+    scheduler_state = None
+    sampler_state = None
+    global_step = 0
+    last_relora_reset = 0
 
-    # Load dataset
+    # Create checkpoint manager for all processes
+    checkpoint_manager = CheckpointManager(args.checkpoint_dir, keep_last_n=2)
+
+    # First load checkpoint if it exists - only on main process
+    if accelerator.is_main_process:
+        checkpoint = checkpoint_manager.load_latest_checkpoint(device='cpu')  # Load to CPU first
+        print("Main process loaded checkpoint")
+        
+        if checkpoint is not None:
+            # Extract only LoRA parameters
+            state_dict = checkpoint['model_state_dict']
+            lora_state_dict = {k: v for k, v in state_dict.items() if 'lora_A' in k or 'lora_B' in k}
+            
+            # Extract other states
+            optimizer_state = checkpoint['optimizer_state_dict']
+            scheduler_state = checkpoint['scheduler_state_dict']
+            sampler_state = checkpoint.get('sampler_state', None)
+            global_step = checkpoint['global_step']
+            last_relora_reset = checkpoint['last_relora_reset']
+            
+            # Clear memory
+            del state_dict
+            cleanup_memory()
+            torch.cuda.empty_cache()
+    else:
+        checkpoint = None
+        lora_state_dict = None
+        optimizer_state = None
+        scheduler_state = None
+        sampler_state = None
+        global_step = 0
+        last_relora_reset = 0
+    
+    # Broadcast the checkpoint info
+    checkpoint_info = [global_step, last_relora_reset]
+    torch.distributed.broadcast_object_list(checkpoint_info, src=0)
+    global_step, last_relora_reset = checkpoint_info
+    
+    # Now load the base model
+    print("\nLoading base model...")
+    cleanup_memory()
+    torch.cuda.empty_cache()
+    
+    # Load base model with memory-efficient settings
+    model = AutoModelForCausalLM.from_pretrained(
+        args.grown_model,
+        device_map='cpu',
+        low_cpu_mem_usage=True,
+        offload_folder="offload",
+        offload_state_dict=True
+    )
+    cleanup_memory()
+    torch.cuda.empty_cache()
+    
+    # Enable gradient checkpointing before wrapping
+    model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+    cleanup_memory()
+    torch.cuda.empty_cache()
+    
+    # Create ReLoRA wrapper
+    model = ReLoRaModel(
+        model,
+        target_modules=["att_proj"],
+        r=args.rank,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=0.05,
+        keep_original_weights=True,
+        lora_only=False,
+        trainable_scaling=False,
+    )
+    cleanup_memory()
+    torch.cuda.empty_cache()
+
+    # Set which parameters are trainable
+    if args.do_extact_lora:
+        for name, param in model.named_parameters():
+            param.requires_grad = False
+            if "lora_A" in name or "lora_B" in name:
+                param.requires_grad = True
+    cleanup_memory()
+    torch.cuda.empty_cache()
+
+    # Load dataset and create dataloader first
     if args.use_on_the_fly:
         dataset = CustomBinFileDataset(
             first_idx=args.first_idx,
@@ -117,22 +204,32 @@ def main():
             chunk_size=args.chunk_size,
             debug=args.debug
         )
+    elif args.dataset == 'dolma':
+        dataset = CustomDolmaDataset(
+            memmap_file=f"data/dolma_tokenized/{map_number_to_text(args.num_tokens)}.npy", 
+            chunk_size=args.chunk_size, 
+            debug=False, 
+            num_tokens=args.num_tokens
+        )
     else:
         dataset = torch.load(args.dataset)
 
     # Create dataloader
     sampler = ResumableSampler(dataset)
+    if checkpoint is not None:
+        sampler.load_state_dict(checkpoint['sampler_state'])
     dataloader = DataLoader(
         dataset,
         batch_size=args.batch_size, 
-        # shuffle=False,  # keep the same order
         sampler=sampler,
         collate_fn=default_data_collator,
         num_workers=1,
         pin_memory=True
     )
+    print("The dataloader is successfully created.")
 
-    total_batches = len(dataloader)
+    # Calculate training parameters
+    total_batches = len(dataloader)  # This will now be correct because sampler.__len__ accounts for start_idx
     num_gpus = accelerator.num_processes
     steps_per_gpu = total_batches // num_gpus
 
@@ -146,64 +243,34 @@ def main():
     warmup_steps = desired_warmup_per_gpu * num_gpus
 
     # update the args
-    args.relora_steps = cycle_length // num_gpus  # yeah this is confusing
+    args.relora_steps = cycle_length // num_gpus
     args.warmup_steps = warmup_steps
     args.restart_warmup_steps = warmup_steps // 2
     args.cycle_length = cycle_length
 
-    # Load model
-    model = AutoModelForCausalLM.from_pretrained(args.grown_model, device_map=device)
-    model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
-
-    # Use ReLoRA
-    model = ReLoRaModel(
-        model,
-        target_modules=[
-            "query_key_value",
-            "dense",
-            "dense_h_to_4h",
-            "dense_4h_to_h",
-        ],
-        r=args.rank,
-        lora_alpha=args.lora_alpha,
-        lora_dropout=0.05,
-        # it doesn't have these parameters
-        # bias="none",  
-        # task_type="CAUSAL_LM",
-        keep_original_weights=True,
-        lora_only=False,
-        trainable_scaling=False,
-    )
-
-    # Note: the default relora config set everything to be trainable, except it sets the dense weight to be lora_A and lora_B
-    if args.do_extact_lora:
-        # Set all parameters to be non-trainable
-        # then set only the lora_A and lora_B 
-        for name, param in model.named_parameters():
-            param.requires_grad = False
-            if "lora_A" in name or "lora_B" in name:
-                param.requires_grad = True
-
-    # print trainable parameters
-    total_params, trainable_params = count_parameters(model)
-    print(f"Total trainable parameters: {trainable_params}")
-    print(f"Train ratio: {trainable_params / total_params:.4f}")
-
-    for name, param in model.named_parameters():
-        print(f"{name}: requires_grad = {param.requires_grad}, shape = {param.shape}")
-
-    # sys.exit()
-
-    # Optimizer
-    optimizer = torch.optim.AdamW(
-        [p for n, p in model.named_parameters() if p.requires_grad],
-        lr=args.lr
-    )
-
-    # Scheduler
-    if checkpoint is not None:
-        start_step = checkpoint['global_step'] + 1
-        effective_step = start_step - checkpoint['last_relora_reset']
+    # Load LoRA parameters if they exist
+    if lora_state_dict is not None:
+        print("Loading LoRA parameters...")
+        cleanup_memory()
+        torch.cuda.empty_cache()
+        
+        unwrapped_model = accelerator.unwrap_model(model)
+        for key in list(lora_state_dict.keys()):
+            unwrapped_model.state_dict()[key].copy_(lora_state_dict[key])
+            del lora_state_dict[key]
+            torch.cuda.empty_cache()
+            
+        cleanup_memory()
+        torch.cuda.empty_cache()
+        
+        # Create optimizer and scheduler first
+        optimizer = torch.optim.AdamW(
+            [p for n, p in unwrapped_model.named_parameters() if p.requires_grad],
+            lr=args.lr
+        )
+        
+        start_step = global_step + 1
+        effective_step = start_step - last_relora_reset
         
         scheduler = get_scheculer(
             optimizer,
@@ -215,7 +282,28 @@ def main():
             restart_warmup_steps=warmup_steps // 2,
             adjust_step=effective_step
         )
+        
+        # Load optimizer and scheduler states
+        optimizer.load_state_dict(optimizer_state)
+        scheduler.load_state_dict(scheduler_state)
+        if sampler_state:
+            sampler.load_state_dict(sampler_state)
+            
+        # Clear optimizer and scheduler states
+        del optimizer_state
+        del scheduler_state
+        del sampler_state
+        cleanup_memory()
+        torch.cuda.empty_cache()
+        logger.info(f"Resuming from step {start_step}")
     else:
+        start_step = 0
+        logger.info("Starting training from beginning")
+        # Create optimizer and scheduler for fresh start
+        optimizer = torch.optim.AdamW(
+            [p for n, p in model.named_parameters() if p.requires_grad],
+            lr=args.lr
+        )
         scheduler = get_scheculer(
             optimizer,
             scheduler_type=args.scheduler,
@@ -226,32 +314,25 @@ def main():
             restart_warmup_steps=warmup_steps // 2,
         )
 
-    # Load checkpoint
-    if checkpoint is not None:
-        logger.info("Loading checkpoint states...")
-        cleanup_memory()
+    # Now move model to GPU
+    print("Moving model to GPU...")
+    cleanup_memory()
+    torch.cuda.empty_cache()
+    
+    model = model.to(device)
+    cleanup_memory()
+    torch.cuda.empty_cache()
 
-        unwrapped_model = accelerator.unwrap_model(model)
-        unwrapped_model.load_state_dict(checkpoint['model_state_dict'])
+    # print trainable parameters
+    total_params, trainable_params = count_parameters(model)
+    print(f"Total trainable parameters: {trainable_params}")
+    print(f"Train ratio: {trainable_params / total_params:.4f}")
 
-        optimizer = torch.optim.AdamW(
-            [p for n, p in unwrapped_model.named_parameters() if p.requires_grad],
-            lr=args.lr
-        )
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        if checkpoint['sampler_state']:
-            sampler.load_state_dict(checkpoint['sampler_state'])
-
-        cleanup_memory()
-        logger.info(f"Resuming from step {start_step}")
-    else:
-        start_step = 0
-        logger.info("Starting training from beginning")
+    for name, param in model.named_parameters():
+        print(f"{name}: requires_grad = {param.requires_grad}, shape = {param.shape}")
 
     # Prepare for accelerator
     print("\nPreparing for accelerator...")
-    # model = model.to(device)
     cleanup_memory()
     
     model, optimizer, dataloader, scheduler = accelerator.prepare(
@@ -287,7 +368,7 @@ def main():
                 "min_lr_ratio": args.min_lr_ratio,
                 "total_steps_per_gpu": steps_per_gpu,
                 "num_restarts": num_restarts,
-                "resumed_from_step": start_step if checkpoint else 0
+                "resumed_from_step": start_step if lora_state_dict is not None else 0
             }
         )
 

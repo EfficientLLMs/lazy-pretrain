@@ -53,8 +53,8 @@ class CustomDolmaDataset(Dataset):
         return self.num_tokens // self.chunk_size
 
     def __getitem__(self, idx):
-        if torch.cuda.is_available():
-            print(f"\nBefore loading chunk {idx}, GPU memory: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+        # if torch.cuda.is_available():
+        #     print(f"\nBefore loading chunk {idx}, GPU memory: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
         
         # Calculate the start and end positions
         start = idx * self.chunk_size
@@ -70,8 +70,8 @@ class CustomDolmaDataset(Dataset):
         # Copy the data directly from the memory-mapped file
         input_ids[:end-start] = torch.from_numpy(self.memmap[start:end])
         
-        if torch.cuda.is_available():
-            print(f"After copying data, GPU memory: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+        # if torch.cuda.is_available():
+        #     print(f"After copying data, GPU memory: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
     
         if self.debug:
             print("\n\nDetokenized text:")
@@ -347,6 +347,12 @@ def cleanup_memory():
         torch.cuda.empty_cache()
         torch.cuda.reset_max_memory_allocated()
         torch.cuda.reset_peak_memory_stats()
+        
+        # Force garbage collection
+        gc.collect()
+        
+        # Empty cache again after garbage collection
+        torch.cuda.empty_cache()
 
         # Run nvidia-smi again to show memory usage after cleanup
         # print("\nAfter cleanup:")

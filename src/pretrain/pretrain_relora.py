@@ -125,8 +125,10 @@ def main():
         batch_size=args.batch_size, 
         shuffle=False,  # keep the same order
         collate_fn=default_data_collator,
-        num_workers=0,  # Reduce memory overhead
-        pin_memory=False,  # Disable pin_memory to reduce memory usage
+        num_workers=1,
+        pin_memory=True,
+        # num_workers=0,  # Reduce memory overhead
+        # pin_memory=False,  # Disable pin_memory to reduce memory usage
     )
 
     total_batches = len(dataloader)
