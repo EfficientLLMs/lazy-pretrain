@@ -267,9 +267,11 @@ def train(
     for step, batch in enumerate(tqdm(dataloader)):
 
         optimizer.zero_grad()
-        outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
-        loss = outputs.loss
-
+        
+        with torch.amp.autocast('cuda', enabled=autocast):
+            outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
+            loss = outputs.loss
+            
         accelerator.backward(loss)
 
 
