@@ -264,21 +264,24 @@ def train(
     if accelerator.is_main_process:
         print("Start training...")
 
+
     for step, batch in enumerate(tqdm(dataloader)):
 
-        optimizer.zero_grad()
         
-        with torch.amp.autocast('cuda', enabled=autocast):
+        with accelerator.autocast():
             outputs = model(input_ids=batch['input_ids'], labels=batch['input_ids'])
-            loss = outputs.loss
+            loss = outputs.loss / accelerator.gradient_accumulation_steps
             
         accelerator.backward(loss)
-
+        accelerator.clip_grad_norm_(model.parameters(), 1.0)
 
         # Clip the gradients before stepping
-        clip_grad_norm_(model.parameters(), max_norm=1.0)
+        # clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-        optimizer.step()
+        # optimizer.step()
+
+        accelerator.scaler.step(optimizer)
+        optimizer.zero_grad()
 
         batch_loss = loss.item()
         batch_ppl = torch.exp(loss).item()
@@ -289,6 +292,15 @@ def train(
         tokens_seen += batch['input_ids'].numel()
 
         if accelerator.is_main_process:
+
+            wandb.log({
+                "loss": batch_loss,
+                "ppl": batch_ppl,
+                "learning_rate": optimizer.param_groups[0]['lr'],
+                "step": step,
+                "tokens": tokens_seen,
+            }, step=step)
+
             if step % 100 == 0:
                 print(f"Training step {step}, loss: {batch_loss:.2f}, ppl: {batch_ppl:.2f}")
 
@@ -325,6 +337,7 @@ def train(
         avg_ppl = total_ppl / len(dataloader)
 
     if accelerator.is_main_process:
+        wandb.finish()
         print(f"Training finished. Average loss: {avg_loss:.2f}, Average PPL: {avg_ppl:.2f}")
 
     
